@@ -7,6 +7,8 @@
 This module implements an agent that roams around a track following random
 waypoints and avoiding other vehicles. The agent also responds to traffic lights.
 It can also make use of the global route planner to follow a specifed route
+
+这个
 """
 
 import carla

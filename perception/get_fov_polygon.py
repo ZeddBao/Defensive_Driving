@@ -6,7 +6,7 @@ from shapely.geometry import Point, Polygon, LineString, MultiPoint
 from shapely.ops import nearest_points, unary_union, split
 
 
-def ray_casting(observer: Point, fov: float, max_distance: float, structured_obstacles: List[Tuple[Polygon, int]], ray_num: int = 20) -> Tuple[Polygon, List[int], List[int]]:
+def get_fov_polygon(observer: Point, fov: float, max_distance: float, structured_obstacles: List[Tuple[Polygon, int]], ray_num: int = 20) -> Tuple[Polygon, List[int], List[int]]:
     """
     光线投射算法
     :param observer: 观察者点
@@ -91,7 +91,7 @@ if __name__ == '__main__':
     obstacles_type = [2, 2, 2, 2, 1]    # 障碍物类型列表
     structured_obstacles = list(zip(obstacles, obstacles_type))
 
-    visible_area, visible_area_vertices_type, obstacles_visibility = ray_casting(
+    visible_area, visible_area_vertices_type, obstacles_visibility = get_fov_polygon(
         observer, fov, max_distance, structured_obstacles)
 
     # 绘制可视区域

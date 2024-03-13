@@ -77,10 +77,10 @@ if __name__ == "__main__":
     for i in range(len(map.interiors)):
         ax.fill(x_inner[i], y_inner[i], color='white')
 
-    with open('visualization/record_overtake_no_yield_episode_2.pkl', 'rb') as f:
+    with open('visualization/record_intersection_no_yield_episode_4.pkl', 'rb') as f:
         records = pickle.load(f)
 
-    tick = 100
+    tick = 50
     agent_box_list = []
 
     for i, record in enumerate(records.values()):

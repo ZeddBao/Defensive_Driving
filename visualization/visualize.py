@@ -63,21 +63,22 @@ def generate_agent_box(x: float, y: float, box_size: tuple, yaw: float, is_radia
 
 
 if __name__ == "__main__":
-    with open('visualization/map_lane_sides.pkl', 'rb') as f:
+    with open('map_cache/map_lane_sides.pkl', 'rb') as f:
         map = pickle.load(f)
 
     map = Polygon(shell=map[0], holes=map[1:])
     fig, ax = plt.subplots()
+    ax.set_facecolor('gray')
     x_outer, y_outer = map.exterior.xy
     inner_coords = [hole.xy for hole in map.interiors]
     x_inner = [coords[0] for coords in inner_coords]
     y_inner = [coords[1] for coords in inner_coords]
-    ax.fill(x_outer, y_outer, color='grey', alpha=0.5)
+    ax.fill(x_outer, y_outer, color='white', alpha=1)
 
     for i in range(len(map.interiors)):
-        ax.fill(x_inner[i], y_inner[i], color='white')
+        ax.fill(x_inner[i], y_inner[i], color='gray')
 
-    with open('visualization/record_intersection_no_yield_episode_4.pkl', 'rb') as f:
+    with open('results/record_intersection_no_yield_episode_4.pkl', 'rb') as f:
         records = pickle.load(f)
 
     tick = 50
@@ -109,11 +110,11 @@ if __name__ == "__main__":
     ego_x = records['ego_agent']['x'][tick]
     ego_y = records['ego_agent']['y'][tick]
 
-    obstacle_type = [2] * (len(agent_box_list)-1)
-    structured_obstacles = list(zip(agent_box_list[1:], obstacle_type))
+    # obstacle_type = [2] * (len(agent_box_list)-1)
+    # structured_obstacles = list(zip(agent_box_list[1:], obstacle_type))
 
     fov_polygon, _, _ = get_fov_polygon(
-        Point(ego_x, ego_y), 360, 100, structured_obstacles, ray_num=3600)
+        Point(ego_x, ego_y), 360, 100, agent_box_list[1:], ray_num=3600)
     x, y = fov_polygon.exterior.xy
     ax.fill(x, y, alpha=0.3, color='green', edgecolor='none')
 

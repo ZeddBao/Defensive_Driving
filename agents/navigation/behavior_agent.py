@@ -285,6 +285,14 @@ class BehaviorAgent(BasicAgent):
                 return self.emergency_stop()
             else:
                 control = self.car_following_manager(vehicle, distance)
+        
+        # debug
+        elif self._incoming_waypoint is None:
+            target_speed = min([
+                self._behavior.max_speed,
+                self._speed_limit - self._behavior.speed_lim_dist])
+            self._local_planner.set_speed(target_speed)
+            control = self._local_planner.run_step(debug=debug)
 
         # 3: Intersection behavior
         elif self._incoming_waypoint.is_junction and (self._incoming_direction in [RoadOption.LEFT, RoadOption.RIGHT]):

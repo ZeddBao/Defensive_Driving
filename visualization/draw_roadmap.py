@@ -71,16 +71,10 @@ class Util(object):
         t.transform(corners)
         return corners
 
-def draw_road_map(carla_map):
+def draw_road_map(carla_map, precision = 1, show_triggers = 1, show_spawn_points = 1, show_connections = 1):
     """Draws all the roads, including lane markings, arrows and traffic signs"""
     fig, ax = plt.subplots()
     ax.set_facecolor(COLOR_WHITE)
-
-    precision = 1
-
-    show_triggers = 1
-    show_spawn_points = 0
-    show_connections = 0
 
     def lane_marking_color_to_tango(lane_marking_color):
         """Maps the lane marking color enum specified in PythonAPI to a Tango Color"""
@@ -393,15 +387,18 @@ def draw_road_map(carla_map):
     draw_topology(topology, 0)  # TODO: draw_topology
 
     if show_spawn_points:
-        for sp in carla_map.get_spawn_points():
-            draw_arrow(sp, color=COLOR_CHOCOLATE_0)
+        for i, sp in enumerate(carla_map.get_spawn_points()):
+            # 用数字标记生成点，填充文字背景
+            ax.text(sp.location.x, sp.location.y, str(i),
+                fontsize=5, color=COLOR_BLACK, ha='center', va='center',
+                bbox=dict(facecolor=COLOR_ALUMINIUM_0, alpha=0.5, edgecolor=COLOR_ALUMINIUM_0, boxstyle='round,pad=0.1'))
 
     if show_connections:
         dist = 1.5
 
         def to_pixel(wp): return wp.transform.location
         for wp in carla_map.generate_waypoints(dist):
-            col = (0, 255, 255) if wp.is_junction else (0, 255, 0)
+            col = (0, 1, 1) if wp.is_junction else (0, 1, 0)
             wp_start = to_pixel(wp)
 
             for nxt in wp.next(dist):

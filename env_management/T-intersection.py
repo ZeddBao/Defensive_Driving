@@ -68,7 +68,7 @@ def _parse_waypoint(waypoint: Union[int, float, tuple], all_default_spawn: List[
     if isinstance(waypoint, (int, float)):
         return all_default_spawn[waypoint]
     elif isinstance(waypoint, tuple):
-        return carla.Transform(carla.Location(x=waypoint[0], y=waypoint[1], z=waypoint[2]))
+        return carla.Transform(carla.Location(x=waypoint[0], y=waypoint[1], z=waypoint[2]), carla.Rotation(yaw=waypoint[3], pitch=waypoint[4], roll=waypoint[5]))
     
 def _bbox_to_polygon(bbox: carla.BoundingBox, location: List[float], yaw_deg: float) -> Polygon:
     yaw = np.deg2rad(yaw_deg)
@@ -127,7 +127,7 @@ def sample(carla_port: int, episode_num: int = 1000, max_episode_steps: int = 10
 
     client = carla.Client('localhost', carla_port)
     client.set_timeout(60.0)
-    map_name = config.get('map')
+    map_name = config.get('map_name')
     world = client.load_world(map_name)
     world_map = world.get_map()
 
@@ -155,35 +155,35 @@ def sample(carla_port: int, episode_num: int = 1000, max_episode_steps: int = 10
     ########################################################################################################################
     # 加载所有 Agent
     all_default_spawn = world_map.get_spawn_points()
-    config['ego_agent']['spawn_point'] = _parse_waypoint(config['ego_agent']['spawn_point'], all_default_spawn)
-    config['ego_agent']['destination'] = _parse_waypoint(config['ego_agent']['destination'], all_default_spawn)
+    config['ego_agent_config']['spawn_point'] = _parse_waypoint(config['ego_agent_config']['spawn_point'], all_default_spawn)
+    config['ego_agent_config']['destination'] = _parse_waypoint(config['ego_agent_config']['destination'], all_default_spawn)
 
-    for enemy_agent in config['enemy_agents']:
+    for enemy_agent in config['enemy_agents_config']:
         enemy_agent['spawn_point'] = _parse_waypoint(enemy_agent['spawn_point'], all_default_spawn)
         enemy_agent['destination'] = _parse_waypoint(enemy_agent['destination'], all_default_spawn)
 
-    for obstacle_agent in config['obstacle_agents']:
+    for obstacle_agent in config['obstacle_agents_config']:
         obstacle_agent['spawn_point'] = _parse_waypoint(obstacle_agent['spawn_point'], all_default_spawn)
         if obstacle_agent['destination'] is not None:
             continue
         else:
             obstacle_agent['destination'] = _parse_waypoint(obstacle_agent['destination'], all_default_spawn)
 
-    ego_vehicle_bp = blueprint_library.find(config['ego_agent']['vehicle_type'])
-    ego_vehicle_bp.set_attribute('color', config['ego_agent']['color'])
-    ego_vehicle = world.spawn_actor(ego_vehicle_bp, config['ego_agent']['spawn_point'])
+    ego_vehicle_bp = blueprint_library.find(config['ego_agent_config']['vehicle_type'])
+    ego_vehicle_bp.set_attribute('color', config['ego_agent_config']['color'])
+    ego_vehicle = world.spawn_actor(ego_vehicle_bp, config['ego_agent_config']['spawn_point'])
     ego_collision_sensor = CollisionSensor(ego_vehicle)
     
     enemy_vehicle_list = []
     enemy_agent_list = []
-    for enemy_agent in config['enemy_agents']:
+    for enemy_agent in config['enemy_agents_config']:
         enemy_vehicle_bp = blueprint_library.find(enemy_agent['vehicle_type'])
         enemy_vehicle_bp.set_attribute('color', enemy_agent['color'])
         enemy_vehicle = world.spawn_actor(enemy_vehicle_bp, enemy_agent['spawn_point'])
         enemy_vehicle_list.append(enemy_vehicle)
 
     obstacle_vehicle_list = []
-    for obstacle_agent in config['obstacle_agents']:
+    for obstacle_agent in config['obstacle_agents_config']:
         obstacle_vehicle_bp = blueprint_library.find(obstacle_agent['vehicle_type'])
         obstacle_vehicle_bp.set_attribute('color', obstacle_agent['color'])
         obstacle_vehicle = world.spawn_actor(obstacle_vehicle_bp, obstacle_agent['spawn_point'])
@@ -194,17 +194,17 @@ def sample(carla_port: int, episode_num: int = 1000, max_episode_steps: int = 10
     world.tick()
 
     # generate the route    生成 agent 和 route
-    ego_agent = config['ego_agent']['agent_type'](ego_vehicle, target_speed=config['ego_agent']['target_speed'], map_inst=world_map, grp_inst=global_planner)
-    ego_agent.set_destination(config['ego_agent']['destination'].location)
+    ego_agent = config['ego_agent_config']['agent_type'](ego_vehicle, target_speed=config['ego_agent_config']['target_speed'], map_inst=world_map, grp_inst=global_planner)
+    ego_agent.set_destination(config['ego_agent_config']['destination'].location)
     for i, enemy_vehicle in enumerate(enemy_vehicle_list):
-        enemy_agent = config['enemy_agents'][i]['agent_type'](enemy_vehicle, target_speed=enemy_agent['target_speed'], map_inst=world_map, grp_inst=global_planner)
+        enemy_agent = config['enemy_agents_config'][i]['agent_type'](enemy_vehicle, target_speed=enemy_agent['target_speed'], map_inst=world_map, grp_inst=global_planner)
         enemy_agent_list.append(enemy_agent)
-        enemy_agent.set_destination(config['enemy_agents'][i]['destination'].location)
+        enemy_agent.set_destination(config['enemy_agents_config'][i]['destination'].location)
 
     for i, obstacle_vehicle in enumerate(obstacle_vehicle_list):
-        if config['obstacle_agents'][i]['agent_type'] is None:
+        if config['obstacle_agents_config'][i]['agent_type'] is None:
             continue
-        obstacle_agent = config['obstacle_agents'][i]['agent_type'](obstacle_vehicle, target_speed=obstacle_agent['target_speed'], map_inst=world_map, grp_inst=global_planner)
+        obstacle_agent = config['obstacle_agents_config'][i]['agent_type'](obstacle_vehicle, target_speed=obstacle_agent['target_speed'], map_inst=world_map, grp_inst=global_planner)
         obstacle_agent.set_destination(obstacle_vehicle.get_transform())
 
     if plot:
@@ -282,4 +282,4 @@ def sample(carla_port: int, episode_num: int = 1000, max_episode_steps: int = 10
             obstacle_vehicle.destroy()
         # carla_pid.kill()
 
-sample(2000, plot=False)
+sample(2000, plot=True)

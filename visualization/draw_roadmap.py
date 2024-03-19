@@ -406,12 +406,14 @@ def draw_road_map(carla_map, precision = 1, show_triggers = 1, show_spawn_points
                 ax.plot([wp_start.x, wp_nxt.x], [wp_start.y, wp_nxt.y], color=col, linewidth=0.1)
             if wp.lane_change & carla.LaneChange.Right:
                 r = wp.get_right_lane()
-                wp_r = to_pixel(r)
+                if r is not None:
+                    wp_r = to_pixel(r)
                 if r and r.lane_type == carla.LaneType.Driving:
                     ax.plot([wp_start.x, wp_r.x], [wp_start.y, wp_r.y], color=col, linewidth=0.1)
             if wp.lane_change & carla.LaneChange.Left:
                 l = wp.get_left_lane()
-                wp_l = to_pixel(l)
+                if l is not None:
+                    wp_l = to_pixel(l)
                 if l and l.lane_type == carla.LaneType.Driving:
                     ax.plot([wp_start.x, wp_l.x], [wp_start.y, wp_l.y], color=col, linewidth=0.1)
 
@@ -443,6 +445,6 @@ def draw_road_map(carla_map, precision = 1, show_triggers = 1, show_spawn_points
 if __name__ == '__main__':
     client = carla.Client('localhost', 2000)
     client.set_timeout(10.0)
-    world = client.load_world('Town01')
+    world = client.load_world('Town03')
     carla_map = world.get_map()
     draw_road_map(carla_map)

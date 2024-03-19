@@ -88,7 +88,7 @@ def _bbox_to_polygon(bbox: carla.BoundingBox, location: List[float], yaw_deg: fl
     return Polygon(rotated_corners)
 
 def _plot(ax, ego_polygon: Polygon = None, enemy_polygon_list: List[Polygon] = None, obstacle_polygon_list: List[Polygon] = None, fov_polygon: Polygon = None, map_borders: Tuple[LineString, Polygon] = None):
-    if map_borders is not None:
+    if map_borders is not None or map_borders is not ():
         ax.set_facecolor('gray')
         x_outer = [coords[0] for coords in map_borders[0].coords]
         y_outer = [coords[1] for coords in map_borders[0].coords]
@@ -204,7 +204,12 @@ def sample(carla_port: int, episode_num: int = 1000, max_episode_steps: int = 10
     for i, obstacle_vehicle in enumerate(obstacle_vehicle_list):
         if config['obstacle_agents_config'][i]['agent_type'] is None:
             continue
-        obstacle_agent = config['obstacle_agents_config'][i]['agent_type'](obstacle_vehicle, target_speed=obstacle_agent['target_speed'], map_inst=world_map, grp_inst=global_planner)
+        obstacle_agent = config['obstacle_agents_config'][i]['agent_type'](
+            obstacle_vehicle,
+            target_speed=obstacle_agent['target_speed'],
+            map_inst=world_map,
+            grp_inst=global_planner
+            )
         obstacle_agent.set_destination(obstacle_vehicle.get_transform())
 
     if plot:

@@ -8,7 +8,8 @@ This module implements an agent that roams around a track following random
 waypoints and avoiding other vehicles. The agent also responds to traffic lights.
 It can also make use of the global route planner to follow a specifed route
 
-这个
+这个模块实现了一个代理，它在一个轨道上漫游，跟随随机的路径点并避开其他车辆。代理还会对交通信号灯做出响应。
+它还可以利用全局路径规划器来遵循指定的路径
 """
 
 import carla
@@ -27,18 +28,23 @@ class BasicAgent(object):
     This agent respects traffic lights and other vehicles, but ignores stop signs.
     It has several functions available to specify the route that the agent must follow,
     as well as to change its parameters in case a different driving mode is desired.
+
+    BasicAgent实现了一个导航场景的代理。
+    该代理尊重交通信号灯和其他车辆，但忽略停车标志。
+    它有几个可用的函数，用于指定代理必须遵循的路线，以及在需要不同驾驶模式时更改其参数。
     """
 
     def __init__(self, vehicle, target_speed=20, opt_dict={}, map_inst=None, grp_inst=None):
         """
         Initialization the agent paramters, the local and the global planner.
+        初始化 agent 参数，本地和全局规划器。
 
-            :param vehicle: actor to apply to agent logic onto
-            :param target_speed: speed (in Km/h) at which the vehicle will move
-            :param opt_dict: dictionary in case some of its parameters want to be changed.
-                This also applies to parameters related to the LocalPlanner.
-            :param map_inst: carla.Map instance to avoid the expensive call of getting it.
-            :param grp_inst: GlobalRoutePlanner instance to avoid the expensive call of getting it.
+            :param vehicle: actor to apply to agent logic onto  要应用到代理逻辑的演员
+            :param target_speed: speed (in Km/h) at which the vehicle will move 车辆移动的速度（以公里/小时为单位）
+            :param opt_dict: dictionary in case some of its parameters want to be changed.  如果要更改一些参数，则使用字典。
+                This also applies to parameters related to the LocalPlanner.    这也适用于与LocalPlanner相关的参数。
+            :param map_inst: carla.Map instance to avoid the expensive call of getting it.  carla.Map实例，以避免获取它的昂贵调用。
+            :param grp_inst: GlobalRoutePlanner instance to avoid the expensive call of getting it. GlobalRoutePlanner实例，以避免获取它的昂贵调用。
 
         """
         self._vehicle = vehicle
@@ -89,7 +95,7 @@ class BasicAgent(object):
         if 'offset' in opt_dict:
             self._offset = opt_dict['offset']
 
-        # Initialize the planners
+        # Initialize the planners   初始化规划器
         self._local_planner = LocalPlanner(self._vehicle, opt_dict=opt_dict, map_inst=self._map)
         if grp_inst:
             if isinstance(grp_inst, GlobalRoutePlanner):
@@ -100,16 +106,17 @@ class BasicAgent(object):
         else:
             self._global_planner = GlobalRoutePlanner(self._map, self._sampling_resolution)
 
-        # Get the static elements of the scene
+        # Get the static elements of the scene  获取场景的静态元素
         self._lights_list = self._world.get_actors().filter("*traffic_light*")
-        self._lights_map = {}  # Dictionary mapping a traffic light to a wp corrspoing to its trigger volume location
+        self._lights_map = {}  # Dictionary mapping a traffic light to a wp corrspoing to its trigger volume location   将交通灯映射到其触发体积位置的wp的字典
 
     def add_emergency_stop(self, control):
         """
         Overwrites the throttle a brake values of a control to perform an emergency stop.
         The steering is kept the same to avoid going out of the lane when stopping during turns
+        重写控制的油门和刹车值，以执行紧急停车。
 
-            :param speed (carl.VehicleControl): control to be modified
+            :param control (carl.VehicleControl): control to be modified  要修改的控制
         """
         control.throttle = 0.0
         control.brake = self._max_brake
@@ -119,7 +126,9 @@ class BasicAgent(object):
     def set_target_speed(self, speed):
         """
         Changes the target speed of the agent
-            :param speed (float): target speed in Km/h
+        改变代理的目标速度
+
+            :param speed (float): target speed in Km/h  以公里/小时为单位的目标速度
         """
         self._target_speed = speed
         self._local_planner.set_speed(speed)
@@ -127,17 +136,24 @@ class BasicAgent(object):
     def follow_speed_limits(self, value=True):
         """
         If active, the agent will dynamically change the target speed according to the speed limits
+        如果激活，代理将根据速度限制动态更改目标速度
 
-            :param value (bool): whether or not to activate this behavior
+            :param value (bool): whether or not to activate this behavior   是否激活此行为
         """
         self._local_planner.follow_speed_limits(value)
 
     def get_local_planner(self):
-        """Get method for protected member local planner"""
+        """
+        Get method for protected member local planner
+        获取受保护成员本地规划器
+        """
         return self._local_planner
 
     def get_global_planner(self):
-        """Get method for protected member local planner"""
+        """
+        Get method for protected member local planner
+        获取受保护成员本地规划器
+        """
         return self._global_planner
 
     def set_destination(self, end_location, start_location=None):
@@ -146,9 +162,11 @@ class BasicAgent(object):
         based on the route returned by the global router, and adds it to the local planner.
         If no starting location is passed, the vehicle local planner's target location is chosen,
         which corresponds (by default), to a location about 5 meters in front of the vehicle.
+        此方法根据全局路由器返回的路线创建起始位置和结束位置之间的路径点列表，并将其添加到本地规划器。
+        如果没有传递起始位置，则选择车辆本地规划器的目标位置，该位置默认情况下对应于车辆前约5米的位置。
 
-            :param end_location (carla.Location): final location of the route
-            :param start_location (carla.Location): starting location of the route
+            :param end_location (carla.Location): final location of the route   路线的最终位置
+            :param start_location (carla.Location): starting location of the route  路线的起始位置
         """
         if not start_location:
             start_location = self._local_planner.target_waypoint.transform.location
@@ -166,10 +184,11 @@ class BasicAgent(object):
     def set_global_plan(self, plan, stop_waypoint_creation=True, clean_queue=True):
         """
         Adds a specific plan to the agent.
+        将特定计划添加到代理。
 
-            :param plan: list of [carla.Waypoint, RoadOption] representing the route to be followed
-            :param stop_waypoint_creation: stops the automatic random creation of waypoints
-            :param clean_queue: resets the current agent's plan
+            :param plan: list of [carla.Waypoint, RoadOption] representing the route to be followed 表示要遵循的路线的列表
+            :param stop_waypoint_creation: stops the automatic random creation of waypoints 停止自动随机创建路径点
+            :param clean_queue: resets the current agent's plan 重置当前代理的计划
         """
         self._local_planner.set_global_plan(
             plan,
@@ -180,16 +199,20 @@ class BasicAgent(object):
     def trace_route(self, start_waypoint, end_waypoint):
         """
         Calculates the shortest route between a starting and ending waypoint.
+        计算起始和结束路径点之间的最短路径。
 
-            :param start_waypoint (carla.Waypoint): initial waypoint
-            :param end_waypoint (carla.Waypoint): final waypoint
+            :param start_waypoint (carla.Waypoint): initial waypoint    初始路径点
+            :param end_waypoint (carla.Waypoint): final waypoint    最终路径点
         """
         start_location = start_waypoint.transform.location
         end_location = end_waypoint.transform.location
         return self._global_planner.trace_route(start_location, end_location)
 
     def run_step(self):
-        """Execute one step of navigation."""
+        """
+        Execute one step of navigation.
+        执行一步导航。
+        """
         hazard_detected = False
 
         # Retrieve all relevant actors
@@ -216,23 +239,38 @@ class BasicAgent(object):
         return control
 
     def done(self):
-        """Check whether the agent has reached its destination."""
+        """
+        Check whether the agent has reached its destination.
+        检查代理是否已到达目的地。
+        """
         return self._local_planner.done()
 
     def ignore_traffic_lights(self, active=True):
-        """(De)activates the checks for traffic lights"""
+        """
+        (De)activates the checks for traffic lights
+        (取消)激活对交通信号灯的检查
+        """
         self._ignore_traffic_lights = active
 
     def ignore_stop_signs(self, active=True):
-        """(De)activates the checks for stop signs"""
+        """
+        (De)activates the checks for stop signs
+        (取消)激活对停车标志的检查
+        """
         self._ignore_stop_signs = active
 
     def ignore_vehicles(self, active=True):
-        """(De)activates the checks for stop signs"""
+        """
+        (De)activates the checks for stop signs
+        (取消)激活对停车标志的检查
+        """
         self._ignore_vehicles = active
 
     def set_offset(self, offset):
-        """Sets an offset for the vehicle"""
+        """
+        Sets an offset for the vehicle
+        为车辆设置一个偏移量
+        """
         self._local_planner.set_offset(offset)
 
     def lane_change(self, direction, same_lane_time=0, other_lane_time=0, lane_change_time=2):
@@ -240,6 +278,8 @@ class BasicAgent(object):
         Changes the path so that the vehicle performs a lane change.
         Use 'direction' to specify either a 'left' or 'right' lane change,
         and the other 3 fine tune the maneuver
+        更改路径，使车辆执行车道变更。
+        使用“direction”指定“左”或“右”车道变更，另外3个微调操作
         """
         speed = self._vehicle.get_velocity().length()
         path = self._generate_lane_change_path(
@@ -260,11 +300,12 @@ class BasicAgent(object):
     def _affected_by_traffic_light(self, lights_list=None, max_distance=None):
         """
         Method to check if there is a red light affecting the vehicle.
+        检查是否有红灯影响车辆的方法。
 
-            :param lights_list (list of carla.TrafficLight): list containing TrafficLight objects.
-                If None, all traffic lights in the scene are used
-            :param max_distance (float): max distance for traffic lights to be considered relevant.
-                If None, the base threshold value is used
+            :param lights_list (list of carla.TrafficLight): list containing TrafficLight objects.  包含TrafficLight对象的列表。
+                If None, all traffic lights in the scene are used   如果为 None，则使用场景中的所有交通灯
+            :param max_distance (float): max distance for traffic lights to be considered relevant. 交通灯被认为是相关的最大距离。
+                If None, the base threshold value is used   如果为 None，则使用基本阈值。
         """
         if self._ignore_traffic_lights:
             return (False, None)
@@ -317,11 +358,12 @@ class BasicAgent(object):
     def _vehicle_obstacle_detected(self, vehicle_list=None, max_distance=None, up_angle_th=90, low_angle_th=0, lane_offset=0):
         """
         Method to check if there is a vehicle in front of the agent blocking its path.
+        检查是否有车辆挡住代理路径的方法。
 
-            :param vehicle_list (list of carla.Vehicle): list contatining vehicle objects.
-                If None, all vehicle in the scene are used
-            :param max_distance: max freespace to check for obstacles.
-                If None, the base threshold value is used
+            :param vehicle_list (list of carla.Vehicle): list contatining vehicle objects.  包含车辆对象的列表。
+                If None, all vehicle in the scene are used  如果为 None，则使用场景中的所有车辆
+            :param max_distance: max freespace to check for obstacles.  最大空间检查障碍物。
+                If None, the base threshold value is used   如果为 None，则使用基本阈值。
         """
         def get_route_polygon():
             route_bb = []
@@ -427,6 +469,9 @@ class BasicAgent(object):
         This methods generates a path that results in a lane change.
         Use the different distances to fine-tune the maneuver.
         If the lane change is impossible, the returned path will be empty.
+        此方法生成导致车道变更的路径。
+        使用不同的距离来微调操作。
+        如果车道变更不可能，返回的路径将为空。
         """
         distance_same_lane = max(distance_same_lane, 0.1)
         distance_other_lane = max(distance_other_lane, 0.1)

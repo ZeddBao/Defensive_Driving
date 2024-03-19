@@ -13,7 +13,7 @@ import numpy as np
 import carla
 from agents.navigation.basic_agent import BasicAgent
 from agents.navigation.local_planner import RoadOption
-from agents.navigation.behavior_types import Cautious, Aggressive, Normal
+from agents.navigation.behavior_types import *
 
 from agents.tools.misc import get_speed, positive, is_within_distance, compute_distance
 
@@ -28,14 +28,20 @@ class BehaviorAgent(BasicAgent):
     from a car in front of it by tracking the instantaneous time to collision
     and keeping it in a certain range. Finally, different sets of behaviors
     are encoded in the agent, from cautious to a more aggressive ones.
+    BehaviorAgent 实现了一个代理，该代理通过计算到达给定目标目的地的最短路径来导航场景。
+    该代理可以正确遵循交通标志、速度限制、交通信号灯，同时还考虑附近的车辆。
+    通过分析周围环境，例如避免尾随，可以做出车道变更决策。
+    除此之外，代理还可以通过跟踪瞬时碰撞时间并将其保持在一定范围内来保持安全距离。
+    最后，代理中编码了不同的行为集，从谨慎到更具侵略性的行为。
     """
 
     def __init__(self, vehicle, behavior='normal', opt_dict={}, map_inst=None, grp_inst=None):
         """
         Constructor method.
+        构造方法。
 
-            :param vehicle: actor to apply to local planner logic onto
-            :param behavior: type of agent to apply
+            :param vehicle: actor to apply to local planner logic onto  要应用到本地规划器逻辑的演员
+            :param behavior: type of agent to apply 要应用的代理类型
         """
 
         super().__init__(vehicle, opt_dict=opt_dict, map_inst=map_inst, grp_inst=grp_inst)
@@ -65,6 +71,7 @@ class BehaviorAgent(BasicAgent):
         """
         This method updates the information regarding the ego
         vehicle based on the surrounding world.
+        该方法根据周围世界更新有关自我车辆的信息。
         """
         self._speed = get_speed(self._vehicle)
         self._speed_limit = self._vehicle.get_speed_limit()
@@ -93,10 +100,11 @@ class BehaviorAgent(BasicAgent):
     def _tailgating(self, waypoint, vehicle_list):
         """
         This method is in charge of tailgating behaviors.
+        该方法负责跟车行为。
 
-            :param location: current location of the agent
-            :param waypoint: current waypoint of the agent
-            :param vehicle_list: list of all the nearby vehicles
+            :param location: current location of the agent  代理的当前位置
+            :param waypoint: current waypoint of the agent  代理的当前航点
+            :param vehicle_list: list of all the nearby vehicles    附近所有车辆的列表
         """
 
         left_turn = waypoint.left_lane_marking.lane_change
@@ -107,12 +115,13 @@ class BehaviorAgent(BasicAgent):
 
         behind_vehicle_state, behind_vehicle, _ = self._vehicle_obstacle_detected(vehicle_list, max(
             self._behavior.min_proximity_threshold, self._speed_limit / 2), up_angle_th=180, low_angle_th=160)
-        if behind_vehicle_state and self._speed < get_speed(behind_vehicle):
+        if behind_vehicle_state and self._speed < get_speed(behind_vehicle):    # 如果后面有车，并且速度小于后面车的速度
             if (right_turn == carla.LaneChange.Right or right_turn ==
                     carla.LaneChange.Both) and waypoint.lane_id * right_wpt.lane_id > 0 and right_wpt.lane_type == carla.LaneType.Driving:
+                # 如果右转或者两边都可以转，且右边的车道是驾驶车道
                 new_vehicle_state, _, _ = self._vehicle_obstacle_detected(vehicle_list, max(
                     self._behavior.min_proximity_threshold, self._speed_limit / 2), up_angle_th=180, lane_offset=1)
-                if not new_vehicle_state:
+                if not new_vehicle_state:   # 如果右边没有车
                     print("Tailgating, moving to the right!")
                     end_waypoint = self._local_planner.target_waypoint
                     self._behavior.tailgate_counter = 200
@@ -121,7 +130,9 @@ class BehaviorAgent(BasicAgent):
             elif left_turn == carla.LaneChange.Left and waypoint.lane_id * left_wpt.lane_id > 0 and left_wpt.lane_type == carla.LaneType.Driving:
                 new_vehicle_state, _, _ = self._vehicle_obstacle_detected(vehicle_list, max(
                     self._behavior.min_proximity_threshold, self._speed_limit / 2), up_angle_th=180, lane_offset=-1)
+                # 如果左转，且左边的车道是驾驶车道
                 if not new_vehicle_state:
+                    # 如果左边没有车
                     print("Tailgating, moving to the left!")
                     end_waypoint = self._local_planner.target_waypoint
                     self._behavior.tailgate_counter = 200
@@ -132,12 +143,14 @@ class BehaviorAgent(BasicAgent):
         """
         This module is in charge of warning in case of a collision
         and managing possible tailgating chances.
+        这个模块负责在发生碰撞时发出警告，并管理可能的尾随机会。
 
-            :param location: current location of the agent
-            :param waypoint: current waypoint of the agent
-            :return vehicle_state: True if there is a vehicle nearby, False if not
-            :return vehicle: nearby vehicle
-            :return distance: distance to nearby vehicle
+
+            :param location: current location of the agent  代理的当前位置
+            :param waypoint: current waypoint of the agent  代理的当前航点
+            :return vehicle_state: True if there is a vehicle nearby, False if not  如果附近有车辆，则为True，否则为False
+            :return vehicle: nearby vehicle 附近的车辆
+            :return distance: distance to nearby vehicle    到附近车辆的距离
         """
 
         vehicle_list = self._world.get_actors().filter("*vehicle*")
@@ -169,12 +182,13 @@ class BehaviorAgent(BasicAgent):
         """
         This module is in charge of warning in case of a collision
         with any pedestrian.
+        这个模块负责在与任何行人发生碰撞时发出警告。
 
-            :param location: current location of the agent
-            :param waypoint: current waypoint of the agent
-            :return vehicle_state: True if there is a walker nearby, False if not
-            :return vehicle: nearby walker
-            :return distance: distance to nearby walker
+            :param location: current location of the agent  代理的当前位置
+            :param waypoint: current waypoint of the agent  代理的当前航点
+            :return vehicle_state: True if there is a walker nearby, False if not   如果附近有步行者，则为True，否则为False
+            :return vehicle: nearby walker  附近的步行者
+            :return distance: distance to nearby walker 到附近步行者的距离
         """
 
         walker_list = self._world.get_actors().filter("*walker.pedestrian*")
@@ -197,11 +211,12 @@ class BehaviorAgent(BasicAgent):
         """
         Module in charge of car-following behaviors when there's
         someone in front of us.
+        当我们前面有人时，负责跟车行为的模块。
 
-            :param vehicle: car to follow
-            :param distance: distance from vehicle
-            :param debug: boolean for debugging
-            :return control: carla.VehicleControl
+            :param vehicle: car to follow   跟随的车
+            :param distance: distance from vehicle  距离车辆的距离
+            :param debug: boolean for debugging 调试的布尔值
+            :return control: carla.VehicleControl   车辆控制
         """
 
         vehicle_speed = get_speed(vehicle)
@@ -239,9 +254,10 @@ class BehaviorAgent(BasicAgent):
     def run_step(self, debug=False):
         """
         Execute one step of navigation.
+        执行一步导航。
 
-            :param debug: boolean for debugging
-            :return control: carla.VehicleControl
+            :param debug: boolean for debugging 调试的布尔值
+            :return control: carla.VehicleControl   车辆控制
         """
         self._update_information()
 
@@ -316,8 +332,9 @@ class BehaviorAgent(BasicAgent):
         """
         Overwrites the throttle a brake values of a control to perform an emergency stop.
         The steering is kept the same to avoid going out of the lane when stopping during turns
+        重写控制的油门和刹车值以执行紧急停车。
 
-            :param speed (carl.VehicleControl): control to be modified
+            :param speed (carl.VehicleControl): control to be modified  要修改的控制
         """
         control = carla.VehicleControl()
         control.throttle = 0.0

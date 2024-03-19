@@ -7,12 +7,12 @@
 class Cautious(object):
     """Class for Cautious agent."""
     max_speed = 25
-    speed_lim_dist = 6
-    speed_decrease = 12
-    safety_time = 3
-    min_proximity_threshold = 12
-    braking_distance = 6
-    tailgate_counter = 0
+    speed_lim_dist = 6  # 开始减速的距离
+    speed_decrease = 12 # 减速的速度
+    safety_time = 3 # 安全时间
+    min_proximity_threshold = 12    # 最小距离
+    braking_distance = 6    # 刹车距离
+    tailgate_counter = 0    # 尾随计数器
 
 
 class Normal(object):

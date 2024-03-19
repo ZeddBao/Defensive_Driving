@@ -63,7 +63,7 @@ def generate_agent_box(x: float, y: float, box_size: tuple, yaw: float, is_radia
 
 
 if __name__ == "__main__":
-    with open('map_cache/map_lane_sides.pkl', 'rb') as f:
+    with open('map_cache/Town01_map_borders.pkl', 'rb') as f:
         map = pickle.load(f)
 
     map = Polygon(shell=map[0], holes=map[1:])

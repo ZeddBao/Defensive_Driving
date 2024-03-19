@@ -90,13 +90,15 @@ def get_map_lanes(curr_waypoint: carla.libcarla.Waypoint, interval: int, search_
     map_lanes_list += get_all_lane_segments(
         curr_waypoint, interval=interval, total_search_depth=search_depth, segment_waypoints_num=segment_waypoints_num)
 
-    if left_lane_waypoint.lane_type == carla.libcarla.LaneType.Driving:
-        map_lanes_list += get_all_lane_segments(
-            left_lane_waypoint, interval=interval, total_search_depth=search_depth, segment_waypoints_num=segment_waypoints_num)
-
-    if right_lane_waypoint.lane_type == carla.libcarla.LaneType.Driving:
-        map_lanes_list += get_all_lane_segments(
-            right_lane_waypoint, interval=interval, total_search_depth=search_depth, segment_waypoints_num=segment_waypoints_num)
+    if left_lane_waypoint is not None:
+        if left_lane_waypoint.lane_type == carla.libcarla.LaneType.Driving:
+            map_lanes_list += get_all_lane_segments(
+                left_lane_waypoint, interval=interval, total_search_depth=search_depth, segment_waypoints_num=segment_waypoints_num)
+            
+    if right_lane_waypoint is not None:
+        if right_lane_waypoint.lane_type == carla.libcarla.LaneType.Driving:
+            map_lanes_list += get_all_lane_segments(
+                right_lane_waypoint, interval=interval, total_search_depth=search_depth, segment_waypoints_num=segment_waypoints_num)
         
     return map_lanes_list
 

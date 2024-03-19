@@ -39,12 +39,14 @@ def get_fov_polygon_structured(observer: Point, fov: float, max_distance: float,
             if 'Point' == intersections.geom_type:
                 intersection_points = [intersections]
             elif 'MultiPoint' == intersections.geom_type:
-                intersection_points = list(intersections)
+                intersection_points = [point for point in intersections.geoms]
             elif 'LineString' == intersections.geom_type:
                 intersection_points = [Point(intersections.coords[0])]
             elif 'MultiLineString' == intersections.geom_type:
                 intersection_points = [Point(line.coords[0])
                                        for line in intersections.geoms]
+            elif 'LinearRing' == intersections.geom_type:
+                intersection_points = [Point(intersections.coords[0])]
             elif 'GeometryCollection' == intersections.geom_type:
                 intersection_points = [
                     geom for geom in intersections.geoms if 'Point' == geom.geom_type]
@@ -110,12 +112,14 @@ def get_fov_polygon(observer: Point, fov: float, max_distance: float, obstacles:
             if 'Point' == intersections.geom_type:
                 intersection_points = [intersections]
             elif 'MultiPoint' == intersections.geom_type:
-                intersection_points = list(intersections)
+                intersection_points = [point for point in intersections.geoms]
             elif 'LineString' == intersections.geom_type:
                 intersection_points = [Point(intersections.coords[0])]
             elif 'MultiLineString' == intersections.geom_type:
                 intersection_points = [Point(line.coords[0])
                                        for line in intersections.geoms]
+            elif 'LinearRing' == intersections.geom_type:
+                intersection_points = [Point(intersections.coords[0])]
             elif 'GeometryCollection' == intersections.geom_type:
                 intersection_points = [
                     geom for geom in intersections.geoms if 'Point' == geom.geom_type]

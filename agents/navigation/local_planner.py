@@ -17,7 +17,7 @@ from agents.tools.misc import draw_waypoints, get_speed
 class RoadOption(IntEnum):
     """
     RoadOption represents the possible topological configurations when moving from a segment of lane to other.
-
+    RoadOption 代表从车道的一段移动到另一段时可能的拓扑配置。
     """
     VOID = -1
     LEFT = 1
@@ -32,28 +32,31 @@ class LocalPlanner(object):
     """
     LocalPlanner implements the basic behavior of following a
     trajectory of waypoints that is generated on-the-fly.
+    LocalPlanner 实现了基本的遵循动态生成的路径的行为。
 
     The low-level motion of the vehicle is computed by using two PID controllers,
     one is used for the lateral control and the other for the longitudinal control (cruise speed).
+    车辆的低级运动是通过使用两个PID控制器来计算的，一个用于横向控制，另一个用于纵向控制（巡航速度）。
 
     When multiple paths are available (intersections) this local planner makes a random choice,
     unless a given global plan has already been specified.
+    当有多条路径可用（交叉口）时，此本地规划器会进行随机选择，除非已经指定了给定的全局计划。
     """
 
     def __init__(self, vehicle, opt_dict={}, map_inst=None):
         """
-        :param vehicle: actor to apply to local planner logic onto
-        :param opt_dict: dictionary of arguments with different parameters:
-            dt: time between simulation steps
-            target_speed: desired cruise speed in Km/h
-            sampling_radius: distance between the waypoints part of the plan
-            lateral_control_dict: values of the lateral PID controller
-            longitudinal_control_dict: values of the longitudinal PID controller
-            max_throttle: maximum throttle applied to the vehicle
-            max_brake: maximum brake applied to the vehicle
-            max_steering: maximum steering applied to the vehicle
-            offset: distance between the route waypoints and the center of the lane
-        :param map_inst: carla.Map instance to avoid the expensive call of getting it.
+        :param vehicle: actor to apply to local planner logic onto  要应用到本地规划器逻辑的actor
+        :param opt_dict: dictionary of arguments with different parameters: 参数字典，其中包含不同参数：
+            dt: time between simulation steps   模拟步骤之间的时间
+            target_speed: desired cruise speed in Km/h  期望的巡航速度（以公里/小时为单位）
+            sampling_radius: distance between the waypoints part of the plan    计划的路径点之间的距离
+            lateral_control_dict: values of the lateral PID controller  横向PID控制器的值
+            longitudinal_control_dict: values of the longitudinal PID controller    纵向PID控制器的值
+            max_throttle: maximum throttle applied to the vehicle   施加到车辆的最大油门
+            max_brake: maximum brake applied to the vehicle  施加到车辆的最大制动
+            max_steering: maximum steering applied to the vehicle   施加到车辆的最大转向
+            offset: distance between the route waypoints and the center of the lane 路线路径点与车道中心之间的距离
+        :param map_inst: carla.Map instance to avoid the expensive call of getting it.  carla.Map实例，以避免获取它的昂贵调用。
         """
         self._vehicle = vehicle
         self._world = self._vehicle.get_world()
@@ -140,8 +143,9 @@ class LocalPlanner(object):
     def set_speed(self, speed):
         """
         Changes the target speed
+        改变目标速度
 
-        :param speed: new target speed in Km/h
+        :param speed: new target speed in Km/h  以公里/小时为单位的新目标速度
         :return:
         """
         if self._follow_speed_limits:
@@ -152,6 +156,7 @@ class LocalPlanner(object):
     def follow_speed_limits(self, value=True):
         """
         Activates a flag that makes the max speed dynamically vary according to the spped limits
+        激活一个标志，使最大速度根据速度限制动态变化
 
         :param value: bool
         :return:
@@ -161,8 +166,9 @@ class LocalPlanner(object):
     def _compute_next_waypoints(self, k=1):
         """
         Add new waypoints to the trajectory queue.
+        将新的路径点添加到轨迹队列中。
 
-        :param k: how many waypoints to compute
+        :param k: how many waypoints to compute 要计算多少个路径点
         :return:
         """
         # check we do not overflow the queue
@@ -194,10 +200,11 @@ class LocalPlanner(object):
         Adds a new plan to the local planner. A plan must be a list of [carla.Waypoint, RoadOption] pairs
         The 'clean_queue` parameter erases the previous plan if True, otherwise, it adds it to the old one
         The 'stop_waypoint_creation' flag stops the automatic creation of random waypoints
+        添加新的计划到本地规划器。计划必须是[carla.Waypoint, RoadOption]对的列表
 
-        :param current_plan: list of (carla.Waypoint, RoadOption)
-        :param stop_waypoint_creation: bool
-        :param clean_queue: bool
+        :param current_plan: list of (carla.Waypoint, RoadOption)   (carla.Waypoint, RoadOption)列表
+        :param stop_waypoint_creation: bool  停止路径点创建
+        :param clean_queue: bool    清空队列
         :return:
         """
         if clean_queue:
@@ -217,16 +224,20 @@ class LocalPlanner(object):
         self._stop_waypoint_creation = stop_waypoint_creation
 
     def set_offset(self, offset):
-        """Sets an offset for the vehicle"""
+        """
+        Sets an offset for the vehicle
+        为车辆设置偏移量
+        """
         self._vehicle_controller.set_offset(offset)
 
     def run_step(self, debug=False):
         """
         Execute one step of local planning which involves running the longitudinal and lateral PID controllers to
         follow the waypoints trajectory.
+        执行本地规划的一个步骤，其中涉及运行纵向和横向PID控制器以遵循路径点轨迹。
 
-        :param debug: boolean flag to activate waypoints debugging
-        :return: control to be applied
+        :param debug: boolean flag to activate waypoints debugging  激活路径点调试的布尔标志
+        :return: control to be applied  要应用的控制
         """
         if self._follow_speed_limits:
             self._target_speed = self._vehicle.get_speed_limit()
@@ -277,8 +288,9 @@ class LocalPlanner(object):
     def get_incoming_waypoint_and_direction(self, steps=3):
         """
         Returns direction and waypoint at a distance ahead defined by the user.
+        返回用户定义的前方距离处的方向和路径点。
 
-            :param steps: number of steps to get the incoming waypoint.
+            :param steps: number of steps to get the incoming waypoint. 获取前方路径点的步数。
         """
         if len(self._waypoints_queue) > steps:
             return self._waypoints_queue[steps]
@@ -291,12 +303,16 @@ class LocalPlanner(object):
                 return None, RoadOption.VOID
 
     def get_plan(self):
-        """Returns the current plan of the local planner"""
+        """
+        Returns the current plan of the local planner
+        返回本地规划器的当前计划
+        """
         return self._waypoints_queue
 
     def done(self):
         """
         Returns whether or not the planner has finished
+        返回规划器是否已经完成
 
         :return: boolean
         """
@@ -307,10 +323,11 @@ def _retrieve_options(list_waypoints, current_waypoint):
     """
     Compute the type of connection between the current active waypoint and the multiple waypoints present in
     list_waypoints. The result is encoded as a list of RoadOption enums.
+    计算当前活动路径点与 list_waypoints 中存在的多个路径点之间的连接类型。结果被编码为 RoadOption 枚举的列表。
 
-    :param list_waypoints: list with the possible target waypoints in case of multiple options
-    :param current_waypoint: current active waypoint
-    :return: list of RoadOption enums representing the type of connection from the active waypoint to each
+    :param list_waypoints: list with the possible target waypoints in case of multiple options  如果有多个选项，列表中包含可能的目标路径点
+    :param current_waypoint: current active waypoint    当前活动路径点
+    :return: list of RoadOption enums representing the type of connection from the active waypoint to each  从活动路径点到每个路径点的连接类型的 RoadOption 枚举列表
              candidate in list_waypoints
     """
     options = []
@@ -329,10 +346,11 @@ def _compute_connection(current_waypoint, next_waypoint, threshold=35):
     """
     Compute the type of topological connection between an active waypoint (current_waypoint) and a target waypoint
     (next_waypoint).
+    计算活动路径点（current_waypoint）和目标路径点（next_waypoint）之间的拓扑连接类型。
 
-    :param current_waypoint: active waypoint
-    :param next_waypoint: target waypoint
-    :return: the type of topological connection encoded as a RoadOption enum:
+    :param current_waypoint: active waypoint    活动路径点
+    :param next_waypoint: target waypoint   目标路径点
+    :return: the type of topological connection encoded as a RoadOption enum:   作为 RoadOption 枚举编码的拓扑连接类型：
              RoadOption.STRAIGHT
              RoadOption.LEFT
              RoadOption.RIGHT

@@ -10,7 +10,7 @@ import carla
 import numpy as np
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon, LineString, Point
-from shapely.ops import nearest_points, unary_union, split
+from shapely.ops import unary_union
 
 import sys
 from pathlib import Path
@@ -84,8 +84,8 @@ class EnvManager():
         self.obstacle_agents = []
 
         self.ego_info = None
-        self.enemy_info = []
-        self.obstacle_info = []
+        self.enemies_info = []
+        self.obstacles_info = []
         self.map_lanes = []
         self.visible_area = []
         self.visible_area_vertices_type = []
@@ -130,7 +130,7 @@ class EnvManager():
             self.ego_agent_config['target_speed'] = np.random.normal(self.ego_agent_config['target_speed'], self.ego_agent_config['target_speed_std_dev'])
 
             self._random_remove(self.enemy_agents_config, 0.1)
-            self._random_remove(self.obstacle_agents_config, 0.5)
+            self._random_remove(self.obstacle_agents_config, 0)
 
             for enemy_agent_config in self.enemy_agents_config:
                 enemy_agent_config['target_speed'] = np.random.normal(enemy_agent_config['target_speed'], enemy_agent_config['target_speed_std_dev'])
@@ -170,40 +170,41 @@ class EnvManager():
     def assign_agents_to_vehicles(self):
         if self.ego_vehicle is not None:
             self.ego_agent = self.ego_agent_config['agent_type'](
-                self.ego_vehicle,
-                self.ego_agent_config['target_speed'],
-                self.map,
-                self.global_planner
+                vehicle=self.ego_vehicle,
+                target_speed=self.ego_agent_config['target_speed'],
+                map_inst=self.map,
+                grp_inst=self.global_planner
                 )
-            self.ego_agent.set_destination(self._parse_waypoint(self.ego_agent_config['destination']))
+            self.ego_agent.set_destination(self._parse_waypoint(self.ego_agent_config['destination']).location)
         for i, enemy_vehicle in enumerate(self.enemy_vehicles):
             enemy_agent = self.enemy_agents_config[i]['agent_type'](
-                enemy_vehicle,
-                self.enemy_agents_config[i]['target_speed'],
-                self.map,
-                self.global_planner
+                vehicle=enemy_vehicle,
+                target_speed=self.enemy_agents_config[i]['target_speed'],
+                map_inst=self.map,
+                grp_inst=self.global_planner
                 )
-            enemy_agent.set_destination(self._parse_waypoint(self.enemy_agents_config[i]['destination']))
+            enemy_agent.set_destination(self._parse_waypoint(self.enemy_agents_config[i]['destination']).location)
             self.enemy_agents.append(enemy_agent)
         for i, obstacle_vehicle in enumerate(self.obstacle_vehicles):
             if self.obstacle_agents_config[i]['agent_type'] is None:
+                self.obstacle_agents.append(None)
                 continue
             elif self.obstacle_agents_config[i]['agent_type'] == BasicAgent:
                 obstacle_agent = self.obstacle_agents_config[i]['agent_type'](
-                    obstacle_vehicle,
-                    self.obstacle_agents_config[i]['target_speed'],
-                    self.map,
-                    self.global_planner
+                    vehicle=obstacle_vehicle,
+                    target_speed=self.obstacle_agents_config[i]['target_speed'],
+                    map_inst=self.map,
+                    grp_inst=self.global_planner
                     )
-                obstacle_agent.set_destination(self._parse_waypoint(self.obstacle_agents_config[i]['destination']))
+                obstacle_agent.set_destination(self._parse_waypoint(self.obstacle_agents_config[i]['destination']).location)
                 self.obstacle_agents.append(obstacle_agent)
             elif self.obstacle_agents_config[i]['agent_type'] == BehaviorAgent:
                 obstacle_agent = self.obstacle_agents_config[i]['agent_type'](
-                    obstacle_vehicle,
-                    self.obstacle_agents_config[i]['behavior'],
-                    self.map,
-                    self.global_planner)
-                obstacle_agent.set_destination(self._parse_waypoint(self.obstacle_agents_config[i]['destination']))
+                    vehicle=obstacle_vehicle,
+                    behavior=self.obstacle_agents_config[i]['behavior'],
+                    map_inst=self.map,
+                    grp_inst=self.global_planner)
+                obstacle_agent.set_destination(self._parse_waypoint(self.obstacle_agents_config[i]['destination']).location)
                 self.obstacle_agents.append(obstacle_agent)
 
     def update_info(self, plot=False):
@@ -222,43 +223,41 @@ class EnvManager():
 
         self.map_lanes = get_map_lanes(self.map.get_waypoint(self.ego_vehicle.get_location()), 1, 100, 20)
 
-        self.enemy_info = []
-        for i, enemy_vehicle in enumerate(self.enemy_vehicles):
+        self.enemies_info = []
+        for enemy_vehicle in self.enemy_vehicles:
             enemy_transform = enemy_vehicle.get_transform()
             enemy_location = (enemy_transform.location.x, enemy_transform.location.y, enemy_transform.location.z)
             enemy_yaw = enemy_transform.rotation.yaw
             enemy_polygon = self._bbox_to_polygon(enemy_vehicle.bounding_box, enemy_location, enemy_yaw)
             enemy_velocity_vec3d = enemy_vehicle.get_velocity()
             enemy_velocity = (enemy_velocity_vec3d.x, enemy_velocity_vec3d.y, enemy_velocity_vec3d.z)
-            self.enemy_info.append({
+            self.enemies_info.append({
                 "location": enemy_location,
                 "yaw": enemy_yaw,
                 "velocity": enemy_velocity,
                 "polygon": enemy_polygon
             })
         
-        self.obstacle_info = []
-        for i, obstacle_vehicle in enumerate(self.obstacle_vehicles):
-            if self.obstacle_agents_config[i]['agent_type'] is None:
-                continue
+        self.obstacles_info = []
+        for obstacle_vehicle in self.obstacle_vehicles:
             obstacle_transform = obstacle_vehicle.get_transform()
             obstacle_location = (obstacle_transform.location.x, obstacle_transform.location.y, obstacle_transform.location.z)
             obstacle_yaw = obstacle_transform.rotation.yaw
             obstacle_polygon = self._bbox_to_polygon(obstacle_vehicle.bounding_box, obstacle_location, obstacle_yaw)
             obstacle_velocity_vec3d = obstacle_vehicle.get_velocity()
             obstacle_velocity = (obstacle_velocity_vec3d.x, obstacle_velocity_vec3d.y, obstacle_velocity_vec3d.z)
-            self.obstacle_info.append({
+            self.obstacles_info.append({
                 "location": obstacle_location,
                 "yaw": obstacle_yaw,
                 "velocity": obstacle_velocity,
                 "polygon": obstacle_polygon
             })
 
-            enemy_polygon_list = [enemy_info['polygon'] for enemy_info in self.enemy_info]
-            obstacle_polygon_list = [obstacle_info['polygon'] for obstacle_info in self.obstacle_info]
-            all_polygon_list = self.map_borders_union + enemy_polygon_list + obstacle_polygon_list
-            ego_point = Point(self.ego_info['location'][:2])
-            self.visible_area, self.visible_area_vertices_type, self.obstacles_visibility = get_fov_polygon(ego_point, 360, 50, all_polygon_list, ray_num=40)
+        enemy_polygon_list = [enemy_info['polygon'] for enemy_info in self.enemies_info]
+        obstacle_polygon_list = [obstacle_info['polygon'] for obstacle_info in self.obstacles_info]
+        all_polygon_list = self.map_borders_union + enemy_polygon_list + obstacle_polygon_list
+        ego_point = Point(self.ego_info['location'][:2])
+        self.visible_area, self.visible_area_vertices_type, self.obstacles_visibility = get_fov_polygon(ego_point, 360, 50, all_polygon_list, ray_num=40)
 
         if plot:
             self.ax.clear()
@@ -266,13 +265,23 @@ class EnvManager():
                 ego_polygon=ego_polygon,
                 enemy_polygon_list=enemy_polygon_list,
                 obstacle_polygon_list=obstacle_polygon_list,
-                visible_area=self.visible_area,
+                fov_polygon=self.visible_area,
                 map_borders=self.map_borders
             )
             plt.draw()
             plt.pause(0.01)
+    
+    def apply_control(self):
+        self.ego_vehicle.apply_control(self.ego_agent.run_step())
+        for i, enemy_agent in enumerate(self.enemy_agents):
+            self.enemy_vehicles[i].apply_control(enemy_agent.run_step())
+        for i, obstacle_agent in enumerate(self.obstacle_agents):
+            if obstacle_agent is None:
+                continue
+            self.obstacle_vehicles[i].apply_control(obstacle_agent.run_step())
 
-    def destroy_vehicles(self):
+
+    def destroy_all(self):
         if self.ego_vehicle is not None:
             self.ego_vehicle.destroy()
         if self.ego_collision_sensor is not None:
@@ -312,8 +321,8 @@ class EnvManager():
         self.ax.clear()
         self._plot(
             ego_polygon=self.ego_info['polygon'],
-            enemy_polygon_list=[enemy_info['polygon'] for enemy_info in self.enemy_info],
-            obstacle_polygon_list=[obstacle_info['polygon'] for obstacle_info in self.obstacle_info],
+            enemy_polygon_list=[enemy_info['polygon'] for enemy_info in self.enemies_info],
+            obstacle_polygon_list=[obstacle_info['polygon'] for obstacle_info in self.obstacles_info],
             fov_polygon=self.visible_area,
             map_borders=self.map_borders
         )
@@ -427,3 +436,14 @@ class CollisionSensor(object):
         self.history.append((event.frame, intensity))
         if len(self.history) > 4000:
             self.history.pop(0)
+
+if __name__ == "__main__":
+    env_manager = EnvManager('T-intersection', 'localhost', 2000)
+    env_manager.spawn_vehicles_from_config()
+    env_manager.assign_agents_to_vehicles()
+    print(env_manager.obstacle_agents)
+    while not env_manager.done():
+        env_manager.tick()
+        env_manager.update_info(plot=True)
+        env_manager.apply_control()
+    env_manager.destroy_all()

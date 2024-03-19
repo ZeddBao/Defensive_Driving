@@ -22,7 +22,7 @@ from agents.navigation.behavior_agent import BehaviorAgent
 from agents.navigation.basic_agent import BasicAgent
 from agents.navigation.global_route_planner import GlobalRoutePlanner
 from config import carla_server_path
-from env_config import T_intersection_list
+from env_management.env_manager import T_intersection_list
 from perception.get_fov_polygon import get_fov_polygon
 from perception.get_map_lanes import get_map_lanes
 from shapely.ops import nearest_points, unary_union, split

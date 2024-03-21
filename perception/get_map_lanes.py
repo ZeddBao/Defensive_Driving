@@ -19,7 +19,7 @@ def get_all_lane_segments(curr_waypoint: carla.libcarla.Waypoint, interval: int 
     next_lane_segments_list = []
     breakpoint_queue = deque()
 
-    def get_lane_segment(curr_waypoint: carla.libcarla.Waypoint, towards: str, interval: int, search_depth: int, segment_waypoints_num: int) -> List[List[int]]:
+    def get_lane_segment(curr_waypoint: carla.libcarla.Waypoint, towards: str, interval: int, search_depth: int, segment_waypoints_num: int) -> List[List[float]]:
         nonlocal breakpoint_queue
         segment_waypoints_list = []
         next_waypoint = curr_waypoint

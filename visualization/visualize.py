@@ -2,6 +2,7 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon, Point
+from typing import List
 
 import sys
 from pathlib import Path
@@ -38,12 +39,14 @@ def generate_trajectory_ribbon(x: list, y: list, ribbon_width: float, yaw: list)
     return Polygon(left_side + right_side)
 
 
-def generate_agent_box(x: float, y: float, box_size: tuple, yaw: float, is_radian: bool = False) -> Polygon:
+def generate_agent_box(location: List[float], box_size: List[float], yaw: float, is_radian: bool = False) -> Polygon:
     """
     根据x, y, yaw生成代理车辆的盒子
     """
     if not is_radian:
         yaw = np.deg2rad(yaw)
+
+    x, y = location
 
     corners = np.array([
         [-box_size[0] / 2, -box_size[1] / 2],
@@ -95,7 +98,7 @@ if __name__ == "__main__":
         agent_y = record['y']
         agent_yaw = record['yaw']
         agent_box = generate_agent_box(
-            agent_x[tick], agent_y[tick], (4.8, 1.8), agent_yaw[tick])
+            (agent_x[tick], agent_y[tick]), (4.8, 1.8), agent_yaw[tick])
         agent_box_x, agent_box_y = agent_box.exterior.xy
         ax.fill(agent_box_x, agent_box_y, color=color, alpha=1)
 

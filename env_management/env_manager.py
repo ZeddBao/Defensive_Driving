@@ -268,7 +268,6 @@ class EnvManager():
                 continue
             obstacle_agent.apply_control()
 
-
     def destroy_all(self):
         if self.ego_agent is not None:
             self.ego_agent.destroy()
@@ -393,7 +392,8 @@ class VehicleAgent():
 
     def get_velocity(self) -> Tuple[float, float, float]:
         velocity_vec3d = self.vehicle.get_velocity()
-        return (velocity_vec3d.x, velocity_vec3d.y, velocity_vec3d.z)
+        self.velocity = (velocity_vec3d.x, velocity_vec3d.y, velocity_vec3d.z)
+        return self.velocity
     
     def get_location(self) -> Tuple[float, float, float]:
         transform = self.vehicle.get_transform()
@@ -409,16 +409,17 @@ class VehicleAgent():
         self.bbox = carla_bbox_to_polygon(self.vehicle.bounding_box, self.get_location(), self.get_yaw())
         return self.bbox
     
-    def update_info(self):
+    def update_info(self) -> Tuple[Tuple[float, float, float], float, Tuple[float, float, float], Polygon]:
         transform = self.vehicle.get_transform()
         self.location = (transform.location.x, transform.location.y, transform.location.z)
         self.yaw = transform.rotation.yaw
-        self.velocity = self.vehicle.get_velocity()
+        self.get_velocity()
         self.bbox = carla_bbox_to_polygon(self.vehicle.bounding_box, self.location, self.yaw)
+        return self.location, self.yaw, self.velocity, self.bbox
 
     def run_step(self):
         return self.agent.run_step()
-
+    
     def apply_control(self, control=None):
         if control is None:
             self.vehicle.apply_control(self.run_step())

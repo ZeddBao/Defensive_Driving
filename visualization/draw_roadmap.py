@@ -358,7 +358,7 @@ def draw_road_map(carla_map, precision = 1, show_triggers = 1, show_spawn_points
 
                     r = r.get_right_lane()
 
-            # Draw classified lane types
+            # # Draw classified lane types
             draw_lane(shoulder, SHOULDER_COLOR)
             draw_lane(parking, PARKING_COLOR)
             draw_lane(sidewalk, SIDEWALK_COLOR)
@@ -382,6 +382,7 @@ def draw_road_map(carla_map, precision = 1, show_triggers = 1, show_spawn_points
                 for n, wp in enumerate(waypoints):
                     if ((n + 1) % 400) == 0:
                         draw_arrow(wp)
+
 
     topology = carla_map.get_topology()
     draw_topology(topology, 0)  # TODO: draw_topology

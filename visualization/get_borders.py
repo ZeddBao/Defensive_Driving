@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import pickle
 import carla
 
 def lateral_shift(waypoint: carla.libcarla.Waypoint, shift: float):
@@ -34,28 +35,29 @@ for waypoint in waypoints:
 #                 fontsize=2, color='black', ha='center', va='center',
 #                 bbox=dict(facecolor='gray', alpha=0.5, edgecolor='gray', boxstyle='round,pad=0.1'))
 
-keys = [-18, -1251, -29, -28, -1257, 18, 19, 1301, 28, 29, 1275, -19]
+# keys = [-18, -1251, -29, -28, -1257, 18, 19, 1301, 28, 29, 1275, -19]
+circuit_1 = [-783, -19, 1275, 29, 726, 2]
+circuit_2 = [1, -697, 
 
-dict_borders = {}
+def get_circuit_borders(road_ids: list, roads_dict: dict) -> list:
+    borders = []
+    for key in road_ids:
+        if key < 0:
+            segment = roads_dict[key][::-1]
+        else:
+            segment = roads_dict[key]
+        for wp in segment:
+            right = lateral_shift(wp, wp.lane_width / 2)
+            borders.append(right)
+    return borders
 
-for key in keys:
-    dict_borders[key] = []
-    for wp in dict_waypoints[key]:
-        right = lateral_shift(wp, wp.lane_width / 2)
-        dict_borders[key].append(right)
+c1_borders = get_circuit_borders(circuit_1, dict_waypoints)
 
-for k, border in dict_borders.items():
-    x = [point[0] for point in border]
-    y = [point[1] for point in border]
-    plt.plot(x, y)
+x, y = zip(*c1_borders)
+plt.plot(x, y, 'r')
 
-# 把边线存成一个数组，并保存到pkl文件中
-borders = []
-for key in keys:
-    borders.extend(dict_borders[key])
-
-import pickle
-with open('map_cache/Town03_map_borders.pkl', 'wb') as f:
-    pickle.dump(borders, f)
+# import pickle
+# with open('map_cache/Town03_map_borders.pkl', 'wb') as f:
+#     pickle.dump(borders, f)
 
 plt.show()

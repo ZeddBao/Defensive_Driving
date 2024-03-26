@@ -4,7 +4,7 @@ from collections import deque
 import numpy as np
 import carla
 
-def get_all_lane_segments(curr_waypoint: carla.libcarla.Waypoint, interval: int = 1, total_search_depth: int = 100, segment_waypoints_num: int = 10) -> Tuple[np.array, np.array]:
+def get_all_lane_segments(curr_waypoint: carla.Waypoint, interval: int = 1, total_search_depth: int = 100, segment_waypoints_num: int = 10) -> Tuple[np.array, np.array]:
     '''
     从一点开始，获取所有当前车道双向延伸的所有车道分段
 
@@ -19,7 +19,7 @@ def get_all_lane_segments(curr_waypoint: carla.libcarla.Waypoint, interval: int 
     next_lane_segments_list = []
     breakpoint_queue = deque()
 
-    def get_lane_segment(curr_waypoint: carla.libcarla.Waypoint, towards: str, interval: int, search_depth: int, segment_waypoints_num: int) -> List[List[float]]:
+    def get_lane_segment(curr_waypoint: carla.Waypoint, towards: str, interval: int, search_depth: int, segment_waypoints_num: int) -> List[List[float]]:
         nonlocal breakpoint_queue
         segment_waypoints_list = []
         next_waypoint = curr_waypoint
@@ -38,8 +38,8 @@ def get_all_lane_segments(curr_waypoint: carla.libcarla.Waypoint, interval: int 
                 break
             elif next_waypoint_list_len == 1:
                 # segment_waypoints_list.append([next_waypoint.transform.location.x, next_waypoint.transform.location.y, next_waypoint.transform.location.z])
-                # is_turn_left_allowed = next_waypoint.lane_change == carla.libcarla.LaneChange.Left or next_waypoint.lane_change == carla.libcarla.LaneChange.Both
-                # is_turn_right_allowed = next_waypoint.lane_change == carla.libcarla.LaneChange.Right or next_waypoint.lane_change == carla.libcarla.LaneChange.Both
+                # is_turn_left_allowed = next_waypoint.lane_change == carla.LaneChange.Left or next_waypoint.lane_change == carla.LaneChange.Both
+                # is_turn_right_allowed = next_waypoint.lane_change == carla.LaneChange.Right or next_waypoint.lane_change == carla.LaneChange.Both
                 vec_forward = next_waypoint.transform.get_forward_vector()
                 vec_right = next_waypoint.transform.get_right_vector()
                 lane_width = next_waypoint.lane_width
@@ -82,7 +82,7 @@ def get_all_lane_segments(curr_waypoint: carla.libcarla.Waypoint, interval: int 
 
     return np.array(next_lane_segments_list), np.array(previous_lane_segments_list)
 
-def get_map_lanes(curr_waypoint: carla.libcarla.Waypoint, interval: int, search_depth: int, segment_waypoints_num: int) -> List[np.array]:
+def get_map_lanes(curr_waypoint: carla.Waypoint, interval: int, search_depth: int, segment_waypoints_num: int) -> List[np.array]:
     left_lane_waypoint = curr_waypoint.get_left_lane()
     right_lane_waypoint = curr_waypoint.get_right_lane()
 
@@ -91,12 +91,12 @@ def get_map_lanes(curr_waypoint: carla.libcarla.Waypoint, interval: int, search_
         curr_waypoint, interval=interval, total_search_depth=search_depth, segment_waypoints_num=segment_waypoints_num)
 
     if left_lane_waypoint is not None:
-        if left_lane_waypoint.lane_type == carla.libcarla.LaneType.Driving:
+        if left_lane_waypoint.lane_type == carla.LaneType.Driving:
             map_lanes_list += get_all_lane_segments(
                 left_lane_waypoint, interval=interval, total_search_depth=search_depth, segment_waypoints_num=segment_waypoints_num)
             
     if right_lane_waypoint is not None:
-        if right_lane_waypoint.lane_type == carla.libcarla.LaneType.Driving:
+        if right_lane_waypoint.lane_type == carla.LaneType.Driving:
             map_lanes_list += get_all_lane_segments(
                 right_lane_waypoint, interval=interval, total_search_depth=search_depth, segment_waypoints_num=segment_waypoints_num)
         

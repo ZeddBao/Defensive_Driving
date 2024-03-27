@@ -3,18 +3,19 @@ from typing import List, Tuple, Union
 import numpy as np
 import matplotlib.pyplot as plt
 from shapely.geometry import Point, Polygon, LineString, MultiPoint, LinearRing, MultiLineString
-from shapely.ops import nearest_points, unary_union, split
+from shapely.ops import unary_union
 
 def extract_key_points(intersections: Union[Point, Polygon, LineString, MultiPoint, LinearRing, MultiLineString]) -> List[Point]:
     key_points = []
     if 'Point' == intersections.geom_type:
         key_points = [intersections]
     elif 'MultiPoint' == intersections.geom_type:
-        key_points = [intersections.geoms[0]]
+        key_points = intersections.geoms
     elif 'LineString' == intersections.geom_type:
         key_points = [Point(intersections.coords[0])]
     elif 'MultiLineString' == intersections.geom_type:
         key_points = [Point(intersections.geoms[0].coords[0])]
+        # key_points = [Point(line.coords[0]) for line in intersections.geoms]
     elif 'GeometryCollection' == intersections.geom_type:
         key_points = []
         for geom in intersections.geoms:
@@ -71,7 +72,7 @@ def get_fov_polygon_structured(observer: Point, fov: float, max_distance: float,
         else:
             visible_points.append(far_point)    # 如果没有交点，添加远端点
 
-    if fov < 360:
+    if fov < 360 and fov != 180:
         visible_points.append(observer)  # 添加观察者点
 
     visible_area = Polygon(visible_points)  # 创建可视区域多边形

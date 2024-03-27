@@ -8,7 +8,7 @@ def lateral_shift(waypoint: carla.libcarla.Waypoint, shift: float):
     point = waypoint.transform.location + shift * waypoint.transform.get_right_vector()
     return point.x, point.y
 
-def get_circuit_borders(road_ids: list, roads_dict: dict) -> list:
+def get_borders(road_ids: list, roads_dict: dict) -> list:
         borders = []
         for key in road_ids:
             if key < 0:
@@ -73,19 +73,19 @@ if __name__ == '__main__':
 
 
     cx_borders = [
-        get_circuit_borders(circuit_outer, dict_waypoints),
-        get_circuit_borders(circuit_1, dict_waypoints),
-        get_circuit_borders(circuit_2, dict_waypoints),
-        get_circuit_borders(circuit_3, dict_waypoints),
-        get_circuit_borders(circuit_4, dict_waypoints),
-        get_circuit_borders(circuit_5, dict_waypoints),
-        get_circuit_borders(circuit_6, dict_waypoints),
-        get_circuit_borders(circuit_7, dict_waypoints),
-        get_circuit_borders(circuit_8, dict_waypoints),
-        get_circuit_borders(circuit_9, dict_waypoints),
-        get_circuit_borders(circuit_10, dict_waypoints),
-        get_circuit_borders(circuit_11, dict_waypoints),
-        get_circuit_borders(circuit_12, dict_waypoints)
+        get_borders(circuit_outer, dict_waypoints),
+        get_borders(circuit_1, dict_waypoints),
+        get_borders(circuit_2, dict_waypoints),
+        get_borders(circuit_3, dict_waypoints),
+        get_borders(circuit_4, dict_waypoints),
+        get_borders(circuit_5, dict_waypoints),
+        get_borders(circuit_6, dict_waypoints),
+        get_borders(circuit_7, dict_waypoints),
+        get_borders(circuit_8, dict_waypoints),
+        get_borders(circuit_9, dict_waypoints),
+        get_borders(circuit_10, dict_waypoints),
+        get_borders(circuit_11, dict_waypoints),
+        get_borders(circuit_12, dict_waypoints)
         ]
     
     for borders in cx_borders:

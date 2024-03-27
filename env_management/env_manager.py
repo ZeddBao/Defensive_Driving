@@ -1,26 +1,21 @@
-import math
 import random
 import pickle
-import weakref
-import collections
-from typing import Union, List, Tuple
+from typing import Union, List
 
 
 import carla
 import numpy as np
 import matplotlib.pyplot as plt
-from shapely.geometry import Polygon, LineString, Point
+from shapely.geometry import Polygon, LinearRing, Point
 from shapely.ops import unary_union
 
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from agents.navigation.behavior_agent import BehaviorAgent
-from agents.navigation.basic_agent import BasicAgent
-from agents.navigation.global_route_planner import GlobalRoutePlanner
-from perception.get_fov_polygon import get_fov_polygon
-from perception.get_map_lanes import get_map_lanes
-from visualization.plot_scene import plot_scene
+from agents.navigation import BehaviorAgent, BasicAgent, GlobalRoutePlanner
+from agents import VehicleAgent
+from perception import get_fov_polygon, get_forward_lanes
+from visualization import plot_scene
 
 T_intersection_list = [
     {
@@ -56,25 +51,43 @@ T_intersection_list = [
                 "target_speed_std_dev": None 
             }
         ]
+    },
+
+    {
+        "map_name": "Town03",
+        "ego_agent_config": {
+            "agent_type": BasicAgent,
+            "spawn_point": 49,
+            "destination": 132,
+            "vehicle_type": "vehicle.audi.a2",
+            "color": "255, 0, 0",
+            "target_speed": 100,
+            "target_speed_std_dev": 10
+        },
+        "enemy_agents_config":[
+            {   
+                "agent_type": BasicAgent,
+                "spawn_point": 238,
+                "destination": 130,
+                "vehicle_type": "vehicle.audi.a2",
+                "color": "0, 0, 255",
+                "target_speed": 30,
+                "target_speed_std_dev": 10
+            }
+        ],
+        "obstacle_agents_config":[
+            {   
+                "agent_type": None,
+                "spawn_point": 129,
+                "destination": None,
+                "vehicle_type": "vehicle.carlamotors.carlacola",
+                "color": "0, 255, 255",
+                "target_speed": None,
+                "target_speed_std_dev": None 
+            }
+        ]
     }
 ]
-
-def carla_bbox_to_polygon(bbox: carla.BoundingBox, location: List[float], yaw_deg: float) -> Polygon:
-        yaw = np.deg2rad(yaw_deg)
-        half_box_size = (bbox.extent.x, bbox.extent.y)
-        rotation_matrix = np.array([
-            [np.cos(yaw), -np.sin(yaw)],
-            [np.sin(yaw), np.cos(yaw)]
-        ])
-        corners = np.array([
-            [-half_box_size[0], -half_box_size[1]],
-            [half_box_size[0], -half_box_size[1]],
-            [half_box_size[0], half_box_size[1]],
-            [-half_box_size[0], half_box_size[1]]
-        ])
-        rotated_corners = corners @ rotation_matrix.T
-        rotated_corners += np.array(location[:2])
-        return Polygon(rotated_corners)
 
 
 class EnvManager():
@@ -98,10 +111,12 @@ class EnvManager():
         self.enemy_agents = []
         self.obstacle_agents = []
 
-        self.map_lanes = []
+        self.nearby_lanes = []
         self.visible_area = []
         self.visible_area_vertices_type = []
-        self.obstacles_visibility = []
+        self.agents_visibility = []
+
+        self.recorder = EnvRecorder()
 
         _, self.ax = plt.subplots()
 
@@ -113,6 +128,7 @@ class EnvManager():
             env_dict = random.choice(T_intersection_list)
 
             ############################################################################################################
+            # TODO: Might to be modified
             map_changed = True
             for key, value in env_dict.items():
                 if key == "map_name" and value == self.map_name:
@@ -229,10 +245,10 @@ class EnvManager():
         for obstacle_agent in self.obstacle_agents:
             obstacle_agent.update_info()
 
-        self.map_lanes = get_map_lanes(
+        self.nearby_lanes = get_forward_lanes(
             curr_waypoint=self.map.get_waypoint(carla.Location(*self.ego_agent.location)),
             interval=1,
-            search_depth=100,
+            search_depth=40,
             segment_waypoints_num=20
             )
 
@@ -240,13 +256,16 @@ class EnvManager():
         obstacle_polygon_list = [obstacle_agent.bbox for obstacle_agent in self.obstacle_agents]
         all_polygon_list = self.map_borders_union + enemy_polygon_list + obstacle_polygon_list
         ego_point = Point(self.ego_agent.location[:2])
-        self.visible_area, self.visible_area_vertices_type, self.obstacles_visibility = get_fov_polygon(
+        self.visible_area, self.visible_area_vertices_type, self.agents_visibility = get_fov_polygon(
             observer=ego_point,
-            fov=360,
+            fov=180,
             max_distance=50,
             obstacles=all_polygon_list,
             ray_num=40
             )
+        
+        # 去除 map_borders_union 的可见性
+        self.agents_visibility = self.agents_visibility[1:]
 
         if plot:
             self.ax.clear()
@@ -256,7 +275,8 @@ class EnvManager():
                 enemy_polygon_list=enemy_polygon_list,
                 obstacle_polygon_list=obstacle_polygon_list,
                 fov_polygon=self.visible_area,
-                map_borders=self.map_borders
+                map_borders=self.map_borders,
+                nearby_lanes=self.nearby_lanes
             )
             plt.draw()
             plt.pause(0.01)
@@ -296,6 +316,7 @@ class EnvManager():
                 return 
             elif self.ego_agent.is_collided():
                 print('>>> Collision!')
+                self.recorder.set_collision()
                 return True
             else:
                 return False
@@ -311,46 +332,49 @@ class EnvManager():
             enemy_polygon_list=[enemy_agent.bbox for enemy_agent in self.enemy_agents],
             obstacle_polygon_list=[obstacle_agent for obstacle_agent in self.obstacle_agents],
             fov_polygon=self.visible_area,
-            map_borders=self.map_borders
+            map_borders=self.map_borders,
+            nearby_lanes=self.nearby_lanes
         )
         plt.show()
 
-    # def _plot(self, ego_polygon: Polygon = None, enemy_polygon_list: List[Polygon] = None, obstacle_polygon_list: List[Polygon] = None, fov_polygon: Polygon = None, map_borders: Tuple[LineString, Polygon] = None):
-    #     if map_borders is not None and map_borders != []:
-    #         self.ax.set_facecolor('gray')
-    #         x_outer = [coords[0] for coords in map_borders[0].coords]
-    #         y_outer = [coords[1] for coords in map_borders[0].coords]
-    #         self.ax.fill(x_outer, y_outer, color='white', alpha=1)
+    ############################################################################################################
+    def init_recorder_info(self):
+        if self.ego_agent is None or self.map_name is None:
+            print("World or Ego agent not initialized.")
+        else:
+            self.recorder.init_info(
+                map_name=self.map_name,
+                ego_agent=self.ego_agent,
+                enemy_agents=self.enemy_agents,
+                obstacle_agents=self.obstacle_agents
+            )
 
-    #         for polygon in map_borders[1:]:
-    #             x_inner, y_inner = polygon.exterior.xy
-    #             self.ax.fill(x_inner, y_inner, color='gray', alpha=1)
+    def collect_dataframe(self):
+        if self.ego_agent is None or self.map_name is None:
+            print("World or Ego agent not initialized.")
+        else:
+            self.recorder.collect(
+                ego_agent=self.ego_agent,
+                enemy_agents=self.enemy_agents,
+                obstacle_agents=self.obstacle_agents,
+                map_lanes=self.nearby_lanes,
+                visible_area=self.visible_area,
+                visible_area_vertices_type=self.visible_area_vertices_type,
+                agents_visibility=self.agents_visibility
+            )
 
-    #     if ego_polygon is not None:
-    #         x, y = ego_polygon.exterior.xy
-    #         self.ax.fill(x, y, alpha=1, color='red', edgecolor='none')
+    def save_dataframe(self, path: str=None):
+        self.recorder.save(path)
 
-    #     if enemy_polygon_list is not None and enemy_polygon_list != []:
-    #         for enemy in enemy_polygon_list:
-    #             x, y = enemy.exterior.xy
-    #             self.ax.fill(x, y, alpha=1, color='blue', edgecolor='none')
-
-    #     if obstacle_polygon_list is not None and obstacle_polygon_list != []:
-    #         for obstacle in obstacle_polygon_list:
-    #             x, y = obstacle.exterior.xy
-    #             self.ax.fill(x, y, alpha=1, color='cyan', edgecolor='none')
-
-    #     if fov_polygon is not None:
-    #         x, y = fov_polygon.exterior.xy
-    #         self.ax.fill(x, y, alpha=0.3, color='green', edgecolor='none')
-
-    #     self.ax.set_aspect('equal', 'box')
+    def reset_recorder(self):
+        self.recorder.reset()
+    ############################################################################################################
 
     def _load_map_borders(self, map_name: str):
         with open(f'map_cache/{map_name}_map_borders.pkl', 'rb') as f:
             map = pickle.load(f)
-        if map_name == 'Town01':
-            self.map_borders = [LineString(map[0])] + [Polygon(map_line) for map_line in map[1:]]
+        if map_name in ['Town01', 'Town03']:
+            self.map_borders = [LinearRing(map_line) for map_line in map]
             self.map_borders_union = [unary_union(self.map_borders)]
         else:
             raise ValueError("Map name not supported.")
@@ -369,131 +393,95 @@ class EnvManager():
                 carla.Rotation(yaw=waypoint[3], pitch=waypoint[4], roll=waypoint[5])
                 )
 
+class EnvRecorder():
+    def __init__(self):
+        self.reset()
 
-class VehicleAgent():
-    def __init__(self, vehicle: carla.Actor, agent=None):
-        self.vehicle = vehicle
-        self.agent = agent
-        self.collision_sensor = None
+    def reset(self):
+        self.map_name = None
 
-        self.location: Tuple[float, float, float] = None
-        self.velocity: Tuple[float, float, float] = None
-        self.yaw: float = None
-        self.bbox: Polygon = None
+        self.ego_agent_info = None
+        self.enemy_agents_info = []
+        self.obstacle_agents_info = []
 
-    def assign_agent(self, agent):
-        self.agent = agent
+        self.ego_agent_history = []
+        # self.ego_agent_bbox_history = []
+        self.enemy_agents_history = []
+        # self.enemy_agent_bboxes_history = []
+        self.obstacle_agents_history = []
+        # self.obstacle_agent_bboxes_history = []
+        self.map_lanes_history = []
+        self.visible_area_history = []
+        self.visible_area_vertices_type_history = []
+        self.agents_visibility_history = []
 
-    def init_agent(self, agent_type, **kwargs):
-        self.agent = agent_type(self.vehicle, **kwargs)
+        self.collision = False
 
-    def init_collision_sensor(self):
-        self.collision_sensor = CollisionSensor(self.vehicle)
+    def collect(
+            self,
+            ego_agent: VehicleAgent,
+            enemy_agents: List[VehicleAgent],
+            obstacle_agents: List[VehicleAgent],
+            map_lanes: List[np.array],
+            visible_area: Polygon,
+            visible_area_vertices_type: List[int],
+            agents_visibility: List[int]
+            ):
 
-    def set_destination(self, destination):
-        self.agent.set_destination(destination)
+        self.ego_agent_history.append(ego_agent.get_info_numpy())
+        self.enemy_agents_history.append([enemy_agent.get_info_numpy() for enemy_agent in enemy_agents])
+        self.obstacle_agents_history.append([obstacle_agent.get_info_numpy() for obstacle_agent in obstacle_agents])
+        self.map_lanes_history.append(map_lanes)
+        self.visible_area_history.append(visible_area)
+        self.visible_area_vertices_type_history.append(visible_area_vertices_type)
+        self.agents_visibility_history.append(agents_visibility)
 
-    def get_velocity(self) -> Tuple[float, float, float]:
-        velocity_vec3d = self.vehicle.get_velocity()
-        self.velocity = (velocity_vec3d.x, velocity_vec3d.y, velocity_vec3d.z)
-        return self.velocity
-    
-    def get_location(self) -> Tuple[float, float, float]:
-        transform = self.vehicle.get_transform()
-        self.location = (transform.location.x, transform.location.y, transform.location.z)
-        return self.location
-    
-    def get_yaw(self) -> float:
-        transform = self.vehicle.get_transform()
-        self.yaw = transform.rotation.yaw
-        return self.yaw
-    
-    def get_bbox(self) -> Polygon:
-        self.bbox = carla_bbox_to_polygon(self.vehicle.bounding_box, self.get_location(), self.get_yaw())
-        return self.bbox
-    
-    def update_info(self) -> Tuple[Tuple[float, float, float], float, Tuple[float, float, float], Polygon]:
-        transform = self.vehicle.get_transform()
-        self.location = (transform.location.x, transform.location.y, transform.location.z)
-        self.yaw = transform.rotation.yaw
-        self.get_velocity()
-        self.bbox = carla_bbox_to_polygon(self.vehicle.bounding_box, self.location, self.yaw)
-        return self.location, self.yaw, self.velocity, self.bbox
+    def init_info(
+            self,
+            map_name: str,
+            ego_agent: VehicleAgent,
+            enemy_agents: List[VehicleAgent],
+            obstacle_agents: List[VehicleAgent]
+            ):
 
-    def run_step(self):
-        return self.agent.run_step()
-    
-    def apply_control(self, control=None):
-        if control is None:
-            self.vehicle.apply_control(self.run_step())
-        else:
-            self.vehicle.apply_control(control)
+        self.map_name = map_name
+        self.ego_agent_info = {
+            'id': ego_agent.id,
+            'type_id': ego_agent.type_id,
+            'extent': ego_agent.extent
+        }
+        self.enemy_agents_info = [{
+            'id': enemy_agent.id,
+            'type_id': enemy_agent.type_id,
+            'extent': enemy_agent.extent
+        } for enemy_agent in enemy_agents]
+        self.obstacle_agents_info = [{
+            'id': obstacle_agent.id,
+            'type_id': obstacle_agent.type_id,
+            'extent': obstacle_agent.extent
+        } for obstacle_agent in obstacle_agents]
 
-    def is_collided(self):
-        if self.collision_sensor is not None:
-            return self.collision_sensor.is_collided()
-        else:
-            print("Collision Sensor not initialized.")
-            return None
-    
-    def done(self):
-        return self.agent.done()
+    def set_collision(self):
+        self.collision = True
 
-    def destroy(self):
-        if self.vehicle is not None:
-            self.vehicle.destroy()
-            self.vehicle = None
-        if self.collision_sensor is not None:
-            self.collision_sensor.destroy()
-            self.collision_sensor = None
-        if self.agent is not None:
-            self.agent = None
-
-
-class CollisionSensor(object):
-    def __init__(self, parent_actor):
-        self.sensor = None
-        self.history = []
-        self._parent = parent_actor
-        world = self._parent.get_world()
-        bp = world.get_blueprint_library().find('sensor.other.collision')
-        self.sensor = world.spawn_actor(bp, carla.Transform(), attach_to=self._parent)
-        # We need to pass the lambda a weak reference to self to avoid circular
-        # reference.
-        weak_self = weakref.ref(self)
-        self.sensor.listen(lambda event: CollisionSensor._on_collision(weak_self, event))
-
-    def get_collision_history(self) -> dict:
-        history = collections.defaultdict(int)
-        for frame, intensity in self.history:
-            history[frame] += intensity
-        return history
-    
-    def is_collided(self) -> bool:
-        return self.history != []
-    
-    def destroy(self):
-        if self.sensor:
-            self.sensor.destroy()
-
-    @staticmethod
-    def _on_collision(weak_self, event):
-        self = weak_self()
-        if not self:
-            return
-        impulse = event.normal_impulse
-        intensity = math.sqrt(impulse.x**2 + impulse.y**2 + impulse.z**2)
-        self.history.append((event.frame, intensity))
-        if len(self.history) > 4000:
-            self.history.pop(0)
+    def save(self, path: str=None):
+        dataframe = vars(self)
+        if path is not None:
+            with open(path, 'wb') as f:
+                pickle.dump(dataframe, f)
+        return dataframe
 
 
 if __name__ == "__main__":
     env_manager = EnvManager('T-intersection', 'localhost', 2000)
     env_manager.spawn_vehicles_from_config()
     env_manager.assign_agents_from_config()
+    env_manager.init_recorder_info()
     while not env_manager.done():
         env_manager.tick()
         env_manager.update_info(plot=True)
+        env_manager.collect_dataframe()
         env_manager.apply_control()
     env_manager.destroy_all()
+    dataframe = env_manager.save_dataframe('test.pkl')
+    env_manager.reset_recorder()

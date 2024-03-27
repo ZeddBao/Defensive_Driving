@@ -1,8 +1,4 @@
-
-import os
-import subprocess
 import random
-import time
 import math
 import collections
 import weakref
@@ -13,19 +9,15 @@ import carla
 import numpy as np
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon, LineString, Point
-from shapely.ops import nearest_points, unary_union, split
+from shapely.ops import unary_union
 
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from agents.navigation.behavior_agent import BehaviorAgent
-from agents.navigation.basic_agent import BasicAgent
-from agents.navigation.global_route_planner import GlobalRoutePlanner
-from config import carla_server_path
+from agents.navigation import GlobalRoutePlanner
 from env_management.env_manager import T_intersection_list
-from perception.get_fov_polygon import get_fov_polygon
-from perception.get_map_lanes import get_map_lanes
-from shapely.ops import nearest_points, unary_union, split
+from perception import get_fov_polygon, get_nearby_lanes
+
 
 class CollisionSensor(object):
     def __init__(self, parent_actor):
@@ -229,7 +221,7 @@ def sample(carla_port: int, episode_num: int = 1000, max_episode_steps: int = 10
             ego_velocity_vec3d = ego_vehicle.get_velocity()
             ego_velocity = (ego_velocity_vec3d.x, ego_velocity_vec3d.y, ego_velocity_vec3d.z)
 
-            map_lanes = get_map_lanes(world_map.get_waypoint(ego_vehicle.get_location()), 1, 100, 20)
+            map_lanes = get_nearby_lanes(world_map.get_waypoint(ego_vehicle.get_location()), 1, 100, 20)
 
             enemy_polygon_list = []
             for enemy in enemy_vehicle_list:

@@ -1,13 +1,14 @@
 import pickle
+from typing import List
+
 import numpy as np
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon, Point
-from typing import List
 
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from perception.get_fov_polygon import get_fov_polygon
+from perception import get_fov_polygon
 
 
 def generate_trajectory_ribbon(x: list, y: list, ribbon_width: float, yaw: list) -> Polygon:

@@ -1,4 +1,4 @@
-from typing import List, Union, Tuple
+from typing import List, Tuple
 from collections import deque
 
 import numpy as np
@@ -10,7 +10,7 @@ def get_lane_segments(
         interval: int = 1,
         total_search_depth: int = 100,
         segment_waypoints_num: int = 10
-        ) -> np.array:
+        ) -> np.ndarray:
     '''
     从一点开始，获取所有当前车道单向延伸的所有车道分段
 
@@ -27,7 +27,7 @@ def get_lane_segments(
 
     def get_lane_segment(
             curr_waypoint: carla.Waypoint,
-            towards: str,
+            towards: str,   # 'next' or 'previous'
             interval: int,
             search_depth: int,
             segment_waypoints_num: int
@@ -56,6 +56,8 @@ def get_lane_segments(
                 vec_forward = next_waypoint.transform.get_forward_vector()
                 vec_right = next_waypoint.transform.get_right_vector()
                 lane_width = next_waypoint.lane_width
+
+                ############################################################################################################
                 segment_waypoints_list.append([
                     next_waypoint.transform.location.x, next_waypoint.transform.location.y,     # 0:2 # x, y
                     vec_forward.x, vec_forward.y,                                               # 2:4 # vec_forward
@@ -63,6 +65,8 @@ def get_lane_segments(
                     int(next_waypoint.is_junction),                                             # 5 # is_junction
                     lane_width,                                                                 # 6 # lane_width
                     vec_right.x, vec_right.y])                                                  # 7:9 # vec_right
+                ############################################################################################################
+
                 if towards == 'next':
                     next_waypoint = next_waypoint.next(interval)[0]
                 elif towards == 'previous':
@@ -73,7 +77,7 @@ def get_lane_segments(
 
         if len_waypoints < segment_waypoints_num and len_waypoints > 0:
             # segment_waypoints_nparray = np.concatenate((segment_waypoints_list, np.tile(segment_waypoints_list[-1], (segment_waypoints_num-len_waypoints, 1))), axis=0)  # 用最后一个waypoint填充
-            segment_waypoints_list = segment_waypoints_list + [segment_waypoints_list[-1]] * (segment_waypoints_num-len_waypoints)  # 用最后一个waypoint填充
+            segment_waypoints_list =segment_waypoints_list + [segment_waypoints_list[-1]] * (segment_waypoints_num-len_waypoints)  # 用最后一个waypoint填充
         elif len_waypoints == 0:
             segment_waypoints_list = None
             
@@ -82,7 +86,13 @@ def get_lane_segments(
     breakpoint_queue.append((curr_waypoint, total_search_depth))
     while breakpoint_queue:
         (start_waypoint, num) = breakpoint_queue.popleft()
-        next_segment = get_lane_segment(start_waypoint, towards, interval, num, segment_waypoints_num)
+        next_segment = get_lane_segment(
+            curr_waypoint=start_waypoint,
+            towards=towards,
+            interval=interval, 
+            search_depth=num,
+            segment_waypoints_num=segment_waypoints_num
+            )
         if next_segment is not None:
             lane_segments_list.append(next_segment)
 
@@ -93,7 +103,7 @@ def get_bidirectional_lane_segments(
         interval: int = 1,
         total_search_depth: int = 100,
         segment_waypoints_num: int = 10
-        ) -> Tuple[np.array, np.array]:
+        ) -> Tuple[np.ndarray, np.array]:
     '''
     从一点开始，获取所有当前车道双向延伸的所有车道分段
 
@@ -104,8 +114,20 @@ def get_bidirectional_lane_segments(
     :return: 向前和向后的车道分段列表
     '''
 
-    next_lane_segments_list = get_lane_segments(curr_waypoint, 'next', interval, total_search_depth, segment_waypoints_num)
-    previous_lane_segments_list = get_lane_segments(curr_waypoint, 'previous', interval, total_search_depth, segment_waypoints_num)
+    next_lane_segments_list = get_lane_segments(
+        curr_waypoint=curr_waypoint,
+        towards='next',
+        interval=interval,
+        total_search_depth=total_search_depth,
+        segment_waypoints_num=segment_waypoints_num
+        )
+    previous_lane_segments_list = get_lane_segments(
+        curr_waypoint=curr_waypoint,
+        towards='previous',
+        interval=interval,
+        total_search_depth=total_search_depth,
+        segment_waypoints_num=segment_waypoints_num
+        )
     return np.array(next_lane_segments_list), np.array(previous_lane_segments_list)
 
 def get_forward_lanes(
@@ -113,14 +135,14 @@ def get_forward_lanes(
         interval: int,
         search_depth: int,
         segment_waypoints_num: int
-        ) -> List[np.array]:
+        ) -> List[np.ndarray]:
     
     left_lane_waypoint = curr_waypoint.get_left_lane()
     right_lane_waypoint = curr_waypoint.get_right_lane()
     curr_lane_direction = curr_waypoint.lane_id > 0
 
-    map_lanes_list = []
-    map_lanes_list.append(get_lane_segments(
+    forward_lanes_list = []
+    forward_lanes_list.append(get_lane_segments(
         curr_waypoint=curr_waypoint,
         towards='next',
         interval=interval,
@@ -132,7 +154,7 @@ def get_forward_lanes(
         if left_lane_waypoint.lane_type == carla.LaneType.Driving:
             left_lane_direction = left_lane_waypoint.lane_id > 0
             towards = 'next' if left_lane_direction  == curr_lane_direction else 'previous'
-            map_lanes_list.append(get_lane_segments(
+            forward_lanes_list.append(get_lane_segments(
                 curr_waypoint=left_lane_waypoint,
                 towards=towards,
                 interval=interval,
@@ -144,7 +166,7 @@ def get_forward_lanes(
         if right_lane_waypoint.lane_type == carla.LaneType.Driving:
             right_lane_direction = right_lane_waypoint.lane_id > 0
             towards = 'next' if right_lane_direction  == curr_lane_direction else 'previous'
-            map_lanes_list.append(get_lane_segments(
+            forward_lanes_list.append(get_lane_segments(
                 curr_waypoint=right_lane_waypoint,
                 towards=towards,
                 interval=interval,
@@ -152,20 +174,20 @@ def get_forward_lanes(
                 segment_waypoints_num=segment_waypoints_num
                 ))
             
-    return map_lanes_list
+    return forward_lanes_list
 
 def get_nearby_lanes(
         curr_waypoint: carla.Waypoint,
         interval: int,
         search_depth: int,
         segment_waypoints_num: int
-        ) -> List[np.array]:
+        ) -> List[np.ndarray]:
     
     left_lane_waypoint = curr_waypoint.get_left_lane()
     right_lane_waypoint = curr_waypoint.get_right_lane()
 
-    map_lanes_list = []
-    map_lanes_list += get_bidirectional_lane_segments(
+    nearby_lanes_list = []
+    nearby_lanes_list += get_bidirectional_lane_segments(
         curr_waypoint=curr_waypoint,
         interval=interval,
         total_search_depth=search_depth,
@@ -174,7 +196,7 @@ def get_nearby_lanes(
 
     if left_lane_waypoint is not None:
         if left_lane_waypoint.lane_type == carla.LaneType.Driving:
-            map_lanes_list += get_bidirectional_lane_segments(
+            nearby_lanes_list += get_bidirectional_lane_segments(
                 curr_waypoint=left_lane_waypoint,
                 interval=interval,
                 total_search_depth=search_depth,
@@ -183,14 +205,14 @@ def get_nearby_lanes(
             
     if right_lane_waypoint is not None:
         if right_lane_waypoint.lane_type == carla.LaneType.Driving:
-            map_lanes_list += get_bidirectional_lane_segments(
+            nearby_lanes_list += get_bidirectional_lane_segments(
                 curr_waypoint=right_lane_waypoint,
                 interval=interval,
                 total_search_depth=search_depth,
                 segment_waypoints_num=segment_waypoints_num
                 )
         
-    return map_lanes_list
+    return nearby_lanes_list
 
 # def lateral_shift(origin: Union[np.ndarray, List], right_vec: Union[np.ndarray, List], shift: float) -> np.ndarray:
 #     if isinstance(origin, list):
@@ -229,11 +251,11 @@ if __name__ == '__main__':
     right_lane_waypoint = ego_waypoint.get_right_lane()
     
     t = time.time()
-    # map_lanes_list = get_nearby_lanes(ego_waypoint, distance, search_depth, segment_waypoints_num)
-    map_lanes_list = get_forward_lanes(ego_waypoint, distance, search_depth, segment_waypoints_num)
+    # nearby_lanes_list = get_nearby_lanes(ego_waypoint, distance, search_depth, segment_waypoints_num)
+    forward_lanes_list = get_forward_lanes(ego_waypoint, distance, search_depth, segment_waypoints_num)
     print('Time:', time.time()-t)
 
-    for group in map_lanes_list:
+    for group in forward_lanes_list:
         for lane in group:
             plt.plot(lane[:, 0], lane[:, 1], markersize=0.1)
 
@@ -243,7 +265,7 @@ if __name__ == '__main__':
     if right_lane_waypoint is not None:
         plt.plot(right_lane_waypoint.transform.location.x,right_lane_waypoint.transform.location.y, 'bo', markersize=5)
 
-    # example_lane = map_lanes_nparray[0][0]
+    # example_lane = forward_lanes_nparray[0][0]
     # lane_width = example_lane[0][6]
     # shift_lane = lateral_shift(
     #     example_lane[:, 0:2], example_lane[:, 7:9], lane_width)

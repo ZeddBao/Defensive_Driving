@@ -11,7 +11,7 @@ def plot_scene(
         obstacle_polygon_list: List[Polygon] = None,
         fov_polygon: Polygon = None,
         map_borders: List[LineString] = None,
-        nearby_lanes: List[np.array] = None,
+        nearby_lanes: List[np.ndarray] = None,
         centered: bool = True
         ) -> None:
     

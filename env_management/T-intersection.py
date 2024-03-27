@@ -221,7 +221,7 @@ def sample(carla_port: int, episode_num: int = 1000, max_episode_steps: int = 10
             ego_velocity_vec3d = ego_vehicle.get_velocity()
             ego_velocity = (ego_velocity_vec3d.x, ego_velocity_vec3d.y, ego_velocity_vec3d.z)
 
-            map_lanes = get_nearby_lanes(world_map.get_waypoint(ego_vehicle.get_location()), 1, 100, 20)
+            nearby_lanes = get_nearby_lanes(world_map.get_waypoint(ego_vehicle.get_location()), 1, 100, 20)
 
             enemy_polygon_list = []
             for enemy in enemy_vehicle_list:

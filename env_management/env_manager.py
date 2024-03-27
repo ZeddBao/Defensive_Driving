@@ -1,6 +1,6 @@
 import random
 import pickle
-from typing import Union, List
+from typing import Union, List, Tuple
 
 
 import carla
@@ -16,6 +16,13 @@ from agents.navigation import BehaviorAgent, BasicAgent, GlobalRoutePlanner
 from agents import VehicleAgent
 from perception import get_fov_polygon, get_forward_lanes
 from visualization import plot_scene
+
+FOV = 180
+FOV_RANGE = 50
+RAY_NUM = 40
+LANE_RANGE = 40
+INTERVAL = 1
+SEGMENT_WAYPOINTS_NUM = 20
 
 T_intersection_list = [
     {
@@ -112,7 +119,7 @@ class EnvManager():
         self.obstacle_agents = []
 
         self.nearby_lanes = []
-        self.visible_area = []
+        self.visible_area_vertices = []
         self.visible_area_vertices_type = []
         self.agents_visibility = []
 
@@ -247,21 +254,21 @@ class EnvManager():
 
         self.nearby_lanes = get_forward_lanes(
             curr_waypoint=self.map.get_waypoint(carla.Location(*self.ego_agent.location)),
-            interval=1,
-            search_depth=40,
-            segment_waypoints_num=20
+            interval=INTERVAL,
+            search_depth=LANE_RANGE,
+            segment_waypoints_num=SEGMENT_WAYPOINTS_NUM
             )
 
         enemy_polygon_list = [enemy_agent.bbox for enemy_agent in self.enemy_agents]
         obstacle_polygon_list = [obstacle_agent.bbox for obstacle_agent in self.obstacle_agents]
         all_polygon_list = self.map_borders_union + enemy_polygon_list + obstacle_polygon_list
-        ego_point = Point(self.ego_agent.location[:2])
-        self.visible_area, self.visible_area_vertices_type, self.agents_visibility = get_fov_polygon(
+        ego_point = self.ego_agent.location[:2]
+        self.visible_area_vertices, self.visible_area_vertices_type, self.agents_visibility = get_fov_polygon(
             observer=ego_point,
-            fov=180,
-            max_distance=50,
+            fov=FOV,
+            max_distance=FOV_RANGE,
             obstacles=all_polygon_list,
-            ray_num=40
+            ray_num=RAY_NUM
             )
         
         # 去除 map_borders_union 的可见性
@@ -269,12 +276,13 @@ class EnvManager():
 
         if plot:
             self.ax.clear()
+            fov_polygon = Polygon(self.visible_area_vertices + [ego_point]) if FOV < 360 and FOV != 180 else Polygon(self.visible_area_vertices)
             plot_scene(
                 ax=self.ax,
                 ego_polygon=self.ego_agent.bbox,
                 enemy_polygon_list=enemy_polygon_list,
                 obstacle_polygon_list=obstacle_polygon_list,
-                fov_polygon=self.visible_area,
+                fov_polygon=fov_polygon,
                 map_borders=self.map_borders,
                 nearby_lanes=self.nearby_lanes
             )
@@ -326,12 +334,14 @@ class EnvManager():
 
     def plot(self):
         self.ax.clear()
+        ego_point = self.ego_agent.location[:2]
+        fov_polygon = Polygon(self.visible_area_vertices + [ego_point]) if FOV < 360 and FOV != 180 else Polygon(self.visible_area_vertices)
         plot_scene(
             ax=self.ax,
             ego_polygon=self.ego_agent.bbox,
             enemy_polygon_list=[enemy_agent.bbox for enemy_agent in self.enemy_agents],
             obstacle_polygon_list=[obstacle_agent for obstacle_agent in self.obstacle_agents],
-            fov_polygon=self.visible_area,
+            fov_polygon=fov_polygon,
             map_borders=self.map_borders,
             nearby_lanes=self.nearby_lanes
         )
@@ -357,8 +367,8 @@ class EnvManager():
                 ego_agent=self.ego_agent,
                 enemy_agents=self.enemy_agents,
                 obstacle_agents=self.obstacle_agents,
-                map_lanes=self.nearby_lanes,
-                visible_area=self.visible_area,
+                nearby_lanes=self.nearby_lanes,
+                visible_area=self.visible_area_vertices,
                 visible_area_vertices_type=self.visible_area_vertices_type,
                 agents_visibility=self.agents_visibility
             )
@@ -398,22 +408,22 @@ class EnvRecorder():
         self.reset()
 
     def reset(self):
-        self.map_name = None
+        self.map_name: str = None
 
-        self.ego_agent_info = None
-        self.enemy_agents_info = []
-        self.obstacle_agents_info = []
+        self.ego_agent_info: dict = None
+        self.enemy_agents_info: List[dict] = []
+        self.obstacle_agents_info: List[dict] = []
 
-        self.ego_agent_history = []
+        self.ego_agent_history: List[np.ndarray] = []
         # self.ego_agent_bbox_history = []
-        self.enemy_agents_history = []
+        self.enemy_agents_history: List[List[np.ndarray]] = []
         # self.enemy_agent_bboxes_history = []
-        self.obstacle_agents_history = []
+        self.obstacle_agents_history: List[List[np.ndarray]]= []
         # self.obstacle_agent_bboxes_history = []
-        self.map_lanes_history = []
-        self.visible_area_history = []
-        self.visible_area_vertices_type_history = []
-        self.agents_visibility_history = []
+        self.nearby_lanes_history: List[List[np.ndarray]] = []
+        self.visible_area_vertices_history: List[List[Tuple[float, float]]] = []
+        self.visible_area_vertices_type_history: List[List[Union[int, float]]] = []
+        self.agents_visibility_history: List[List[int]] = []
 
         self.collision = False
 
@@ -422,7 +432,7 @@ class EnvRecorder():
             ego_agent: VehicleAgent,
             enemy_agents: List[VehicleAgent],
             obstacle_agents: List[VehicleAgent],
-            map_lanes: List[np.array],
+            nearby_lanes: List[np.ndarray],
             visible_area: Polygon,
             visible_area_vertices_type: List[int],
             agents_visibility: List[int]
@@ -431,8 +441,8 @@ class EnvRecorder():
         self.ego_agent_history.append(ego_agent.get_info_numpy())
         self.enemy_agents_history.append([enemy_agent.get_info_numpy() for enemy_agent in enemy_agents])
         self.obstacle_agents_history.append([obstacle_agent.get_info_numpy() for obstacle_agent in obstacle_agents])
-        self.map_lanes_history.append(map_lanes)
-        self.visible_area_history.append(visible_area)
+        self.nearby_lanes_history.append(nearby_lanes)
+        self.visible_area_vertices_history.append(visible_area)
         self.visible_area_vertices_type_history.append(visible_area_vertices_type)
         self.agents_visibility_history.append(agents_visibility)
 
@@ -473,15 +483,20 @@ class EnvRecorder():
 
 
 if __name__ == "__main__":
+    import time
+
     env_manager = EnvManager('T-intersection', 'localhost', 2000)
     env_manager.spawn_vehicles_from_config()
     env_manager.assign_agents_from_config()
     env_manager.init_recorder_info()
     while not env_manager.done():
+        # start_time = time.time()
         env_manager.tick()
         env_manager.update_info(plot=True)
         env_manager.collect_dataframe()
         env_manager.apply_control()
+        end_time = time.time()
+        # print(f"Time cost: {end_time - start_time:.3f}s")
     env_manager.destroy_all()
-    dataframe = env_manager.save_dataframe('test.pkl')
+    dataframe = env_manager.save_dataframe('test2.pkl')
     env_manager.reset_recorder()

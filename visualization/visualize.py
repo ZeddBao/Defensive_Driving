@@ -117,9 +117,9 @@ if __name__ == "__main__":
     # obstacle_type = [2] * (len(agent_box_list)-1)
     # structured_obstacles = list(zip(agent_box_list[1:], obstacle_type))
 
-    fov_polygon, _, _ = get_fov_polygon(
+    fov_vertices, _, _ = get_fov_polygon(
         Point(ego_x, ego_y), 360, 100, agent_box_list[1:], ray_num=3600)
-    x, y = fov_polygon.exterior.xy
+    x, y = zip(*fov_vertices)
     ax.fill(x, y, alpha=0.3, color='green', edgecolor='none')
 
     ax.set_aspect('equal', 'box')

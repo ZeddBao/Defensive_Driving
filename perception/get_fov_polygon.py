@@ -22,7 +22,13 @@ def extract_key_points(intersections: Union[Point, Polygon, LineString, MultiPoi
             key_points += extract_key_points(geom)
     return key_points
 
-def get_fov_polygon_structured(observer: Point, fov: float, max_distance: float, structured_obstacles: List[Tuple[Polygon, int]], ray_num: int = 20) -> Tuple[Polygon, List[int], List[int]]:
+def get_fov_polygon_structured(
+        observer: Union[Point, Tuple[float, float]],
+        fov: float,
+        max_distance: float,
+        structured_obstacles: List[Tuple[Polygon, int]],
+        ray_num: int = 20
+        ) -> Tuple[Polygon, List[int], List[int]]:
     """
     光线投射算法
     :param observer: 观察者点
@@ -32,6 +38,9 @@ def get_fov_polygon_structured(observer: Point, fov: float, max_distance: float,
     :param ray_num: 光线数量
     :return: 可视区域多边形, 障碍物可见性列表
     """
+
+    if isinstance(observer, Tuple):
+        observer = Point(observer)
 
     fov_rad = np.radians(fov)   # 将视场角转换为弧度
     angles = np.linspace(-fov_rad / 2, fov_rad / 2, ray_num)    # 使用360条光线进行采样
@@ -72,13 +81,18 @@ def get_fov_polygon_structured(observer: Point, fov: float, max_distance: float,
         else:
             visible_points.append(far_point)    # 如果没有交点，添加远端点
 
-    if fov < 360 and fov != 180:
-        visible_points.append(observer)  # 添加观察者点
+    # if fov < 360 and fov != 180:
+    #     visible_points.append(observer)  # 添加观察者点
+    # visible_area = Polygon(visible_points)  # 创建可视区域多边形
+    return visible_points, visible_area_vertices_type, obstacles_visibility
 
-    visible_area = Polygon(visible_points)  # 创建可视区域多边形
-    return visible_area, visible_area_vertices_type, obstacles_visibility
-
-def get_fov_polygon(observer: Point, fov: float, max_distance: float, obstacles: List[Polygon], ray_num: int = 20) -> Tuple[Polygon, List[int], List[int]]:
+def get_fov_polygon(
+        observer: Union[Point, Tuple[float, float]],
+        fov: float,
+        max_distance: float,
+        obstacles: List[Polygon],
+        ray_num: int = 20
+        ) -> Tuple[List[Tuple[float, float]], List[int], List[int]]:
     """
     光线投射算法
     :param observer: 观察者点
@@ -88,6 +102,9 @@ def get_fov_polygon(observer: Point, fov: float, max_distance: float, obstacles:
     :param ray_num: 光线数量
     :return: 可视区域多边形, 障碍物可见性列表
     """
+
+    if isinstance(observer, Tuple):
+        observer = Point(observer)
 
     fov_rad = np.radians(fov)   # 将视场角转换为弧度
     angles = np.linspace(-fov_rad / 2, fov_rad / 2, ray_num)    # 使用360条光线进行采样
@@ -129,14 +146,13 @@ def get_fov_polygon(observer: Point, fov: float, max_distance: float, obstacles:
             visible_points.append(far_point)    # 如果没有交点，添加远端点
             visible_area_vertices_type[v] = 0
 
-    if fov < 360:
-        visible_points.append(observer)  # 添加观察者点
-
-    visible_area = Polygon(visible_points)  # 创建可视区域多边形
-    return visible_area, visible_area_vertices_type, obstacles_visibility
+    # if fov < 360 and fov != 180:
+    #     visible_points.append(observer)  # 添加观察者点
+    # visible_area = Polygon(visible_points)  # 创建可视区域多边形
+    return visible_points, visible_area_vertices_type, obstacles_visibility
 
 if __name__ == '__main__':
-    observer = Point(0, 0)
+    observer = (0, 0)
     fov = 180  # 90度视场角
     max_distance = 200  # 最远可视距离100个单位
     ray_num = 20
@@ -152,14 +168,16 @@ if __name__ == '__main__':
     obstacles_type = [2, 2, 2, 2, 1]    # 障碍物类型列表
     structured_obstacles = list(zip(obstacles, obstacles_type))
 
-    # visible_area, visible_area_vertices_type, obstacles_visibility = get_fov_polygon(
+    # visible_area, visible_area_vertices_type, obstacles_visibility = get_fov_polygon_structured()
     #     observer, fov, max_distance, structured_obstacles)
     visible_area, visible_area_vertices_type, obstacles_visibility = get_fov_polygon(
         observer, fov, max_distance, obstacles, ray_num)
 
     # 绘制可视区域
     fig, ax = plt.subplots()
-    x, y = visible_area.exterior.xy
+    if fov < 360 and fov != 180:
+        visible_area.append(observer)
+    x, y = zip(*visible_area)
     for i, vertices_type in enumerate(visible_area_vertices_type):
         if vertices_type == 1:
             ax.plot(x[i], y[i], 'r*')
@@ -167,7 +185,7 @@ if __name__ == '__main__':
             ax.plot(x[i], y[i], 'g*')
         
     ax.fill(x, y, alpha=0.5, fc='r', ec='none')
-    ax.plot(*observer.xy, 'bo')  # 观察点
+    ax.plot(*observer, 'bo')  # 观察点
     for i, obstacle in enumerate(obstacles):
         if obstacle.geom_type == 'Polygon':
             x, y = obstacle.exterior.xy

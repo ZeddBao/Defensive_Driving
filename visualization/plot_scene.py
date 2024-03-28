@@ -59,8 +59,36 @@ def plot_scene(
 
     ax.set_aspect('equal', 'box')
 
+def replay_scene_global(
+        ax: Axes,
+        ego_polygon: Polygon = None,
+        enemy_polygon_list: List[Polygon] = None,
+        obstacle_polygon_list: List[Polygon] = None,
+        fov_polygon: Polygon = None,
+        map_borders: List[LineString] = None,
+        nearby_lanes: List[np.ndarray] = None,
+        centered: bool = True
+        ) -> None:
+
+    pass
+
 if __name__ == '__main__':
+    import pickle
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots()
-    pass
+
+    with open('test.pkl', 'rb') as f:
+        data = pickle.load(f)
+
+    ego_extent = data['ego_agent_info']['extent']
+    ego_polygon = Polygon([
+        (-ego_extent[0], -ego_extent[1]),
+        (ego_extent[0], -ego_extent[1]),
+        (ego_extent[0]+0.5, 0),
+        (ego_extent[0], ego_extent[1]),
+        (-ego_extent[0], ego_extent[1])
+    ])
+    ax.fill(*ego_polygon.exterior.xy, alpha=1, color='red', edgecolor='none')
+    ax.set_aspect('equal', 'box')
+    plt.show()

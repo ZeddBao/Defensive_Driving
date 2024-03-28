@@ -7,17 +7,20 @@ from shapely.geometry import Polygon
 def carla_bbox_to_polygon(bbox: carla.BoundingBox, location: List[float], yaw_deg: float) -> Polygon:
     yaw = np.deg2rad(yaw_deg)
     half_box_size = (bbox.extent.x, bbox.extent.y)
+    sin_yaw = np.sin(yaw)
+    cos_yaw = np.cos(yaw)
     rotation_matrix = np.array([
-        [np.cos(yaw), -np.sin(yaw)],
-        [np.sin(yaw), np.cos(yaw)]
+        [cos_yaw, sin_yaw],
+        [-sin_yaw, cos_yaw]
     ])
     corners = np.array([
         [-half_box_size[0], -half_box_size[1]],
-        [half_box_size[0], -half_box_size[1]],
-        [half_box_size[0], half_box_size[1]],
+        [half_box_size[0]-0.5, -half_box_size[1]],
+        [half_box_size[0], 0],
+        [half_box_size[0]-0.5, half_box_size[1]],
         [-half_box_size[0], half_box_size[1]]
     ])
-    rotated_corners = corners @ rotation_matrix.T
+    rotated_corners = corners @ rotation_matrix
     rotated_corners += np.array(location[:2])
     return Polygon(rotated_corners)
 

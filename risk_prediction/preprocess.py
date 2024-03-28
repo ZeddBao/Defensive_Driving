@@ -13,6 +13,7 @@ from risk_function import radial_basis_function, inverse_distance_weighting_func
 MAX_SEGMENTS_NUM = 10
 MAX_WAYPOINTS_NUM = 200
 SEGMENTS_WAYPOINTS_NUM = 20
+FOV_RANGE = 50
 
 import torch
 
@@ -203,8 +204,11 @@ def calculate_waypoints_risk(
         collision_location_local = transform_collsion_location(transform_func, collision_location_global).unsqueeze(1)  # [batch_size, 2] -> [batch_size, 1, 2]
         lane_waypoints_locations = lane_waypoints_batch[:, :, :2]   # [batch_size, waypoints_num, 2]
         distance = torch.norm(lane_waypoints_locations - collision_location_local, dim=-1)  # [batch_size, waypoints_num]
-        return radial_basis_function(distance)
-    
+
+        risk = torch.zeros_like(distance)
+        mask = distance[:, 0] < FOV_RANGE
+        risk[mask] = radial_basis_function(distance[mask], alpha=0.2)
+        return risk
     else:
         shape = list(lane_waypoints_batch.shape)
         shape[-1] = 1
@@ -259,13 +263,16 @@ if __name__ == '__main__':
     fig, ax = plt.subplots()
     for i, lane_waypoints in enumerate(lane_waypoints_batch):
         ax.scatter(lane_waypoints[:, 0], lane_waypoints[:, 1])
-        colors = np.zeros((MAX_WAYPOINTS_NUM, 4))
-        colors[:, 0] = 1.0
-        colors[:, 3] = waypoints_risk[i, :]
-        ax.scatter(lane_waypoints[:, 0], lane_waypoints[:, 1], c=colors)
-        ax.plot(collision_location_local[i, 0], collision_location_local[i, 1], 'r*')
+        if collision:
+            colors = np.zeros((MAX_WAYPOINTS_NUM, 4))
+            colors[:, 0] = 1.0
+            colors[:, 3] = waypoints_risk[i, :]
+            ax.scatter(lane_waypoints[:, 0], lane_waypoints[:, 1], c=colors)
+            ax.plot(collision_location_local[i, 0], collision_location_local[i, 1], 'r*', markersize=10)
         ax.fill(visible_area_batch[i, :, 0], visible_area_batch[i, :, 1], alpha=0.3, color='green')
         ax.set_aspect('equal', 'box')
+        ax.set_xlim(-50, 50)
+        ax.set_ylim(-50, 50)
         plt.draw()
         plt.pause(0.1)
         ax.clear()

@@ -103,6 +103,7 @@ class EnvManager():
         self.carla_port = carla_port
         self.client = carla.Client(carla_host, carla_port)
         self.client.set_timeout(60.0)
+        self.spectator = None
         self.env_name = env_name
         self.map_name = None
         self.world = None
@@ -145,6 +146,7 @@ class EnvManager():
             
             if map_changed:
                 self.world = self.client.load_world(self.map_name)
+                self.spectator = self.world.get_spectator()
                 self.map = self.world.get_map()
                 self._load_map_borders(self.map_name)
                 self.spawn_points = self.map.get_spawn_points()
@@ -245,7 +247,7 @@ class EnvManager():
                     )
                 obstacle_agent.set_destination(self._parse_waypoint(self.obstacle_agents_config[i]['destination']).location)
 
-    def update_info(self, plot=False):
+    def update_info(self, plot=False, render=False):
         self.ego_agent.update_info()
         for enemy_agent in self.enemy_agents:
             enemy_agent.update_info()
@@ -273,6 +275,14 @@ class EnvManager():
         
         # 去除 map_borders_union 的可见性
         self.agents_visibility = self.agents_visibility[1:]
+
+        if render:
+            self.spectator.set_transform(
+                carla.Transform(
+                    carla.Location(*self.ego_agent.location) + carla.Location(z=60),
+                    carla.Rotation(pitch=-90)
+                    )
+                )
 
         if plot:
             self.ax.clear()
@@ -492,11 +502,11 @@ if __name__ == "__main__":
     while not env_manager.done():
         # start_time = time.time()
         env_manager.tick()
-        env_manager.update_info(plot=True)
+        env_manager.update_info(plot=True, render=False)
         env_manager.collect_dataframe()
         env_manager.apply_control()
         end_time = time.time()
         # print(f"Time cost: {end_time - start_time:.3f}s")
     env_manager.destroy_all()
-    dataframe = env_manager.save_dataframe('test2.pkl')
+    # dataframe = env_manager.save_dataframe('test2.pkl')
     env_manager.reset_recorder()

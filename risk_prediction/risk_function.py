@@ -17,13 +17,13 @@ import matplotlib.pyplot as plt
 #     distance = np.sqrt(x**2 + y**2)
 #     return 1 / (1 + np.exp(k * (distance - 1)))
 
-def radial_basis_function(distance, alpha=2.0):
+def radial_basis_function(distance, alpha=0.1):
     return torch.exp(-alpha * distance)
 
-def inverse_distance_weighting_function(distance, alpha=2.0):
+def inverse_distance_weighting_function(distance, alpha=0.5):
     return 1 / (1 + alpha * distance)
 
-def logistic_function(distance, k=2.0):
+def logistic_function(distance, k=0.5):
     return 1 / (1 + torch.exp(k * (distance - 1)))
 
 
